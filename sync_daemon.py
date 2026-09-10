@@ -280,7 +280,15 @@ class QuotaHttpHandler(BaseHTTPRequestHandler):
                 try:
                     import quota_engine as q_eng
                     import migration_engine as m_eng
-                    resp_data['activeAccount'] = q_eng.fetch_quota_and_tier() if hasattr(q_eng, 'fetch_quota_and_tier') else {}
+                    global _cached_account_info, _cached_account_time
+                    now = time.time()
+                    force = 'force=true' in self.path.lower()
+                    if not force and '_cached_account_info' in globals() and _cached_account_info and (now - _cached_account_time < 30):
+                        resp_data['activeAccount'] = _cached_account_info
+                    elif hasattr(q_eng, 'fetch_quota_and_tier'):
+                        _cached_account_info = q_eng.fetch_quota_and_tier()
+                        _cached_account_time = now
+                        resp_data['activeAccount'] = _cached_account_info
                     resp_data['conversations'] = m_eng.list_conversations() if hasattr(m_eng, 'list_conversations') else []
                 except Exception as e:
                     pass
@@ -336,12 +344,16 @@ class QuotaHttpHandler(BaseHTTPRequestHandler):
 
         try:
             import server as srv_mod
+            global _cached_account_info
             if self.path == '/api/switch':
                 resp = srv_mod.switch_account(data.get('accountKey'))
+                _cached_account_info = None
             elif self.path == '/api/save':
                 resp = srv_mod.save_current_account()
+                _cached_account_info = None
             elif self.path == '/api/logout':
                 resp = srv_mod.logout_account()
+                _cached_account_info = None
             elif self.path == '/api/delete':
                 m = srv_mod.load_manifest()
                 ak = data.get('accountKey')
@@ -349,6 +361,7 @@ class QuotaHttpHandler(BaseHTTPRequestHandler):
                     del m[ak]
                     srv_mod.save_manifest(m)
                     resp = {'success': True}
+                _cached_account_info = None
             elif self.path == '/api/migrate':
                 import migration_engine as m_eng
                 resp = m_eng.migrate_conversations(

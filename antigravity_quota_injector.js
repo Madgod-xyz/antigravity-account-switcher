@@ -88,10 +88,13 @@
   ['Fredoka', 'Outfit', 'Space Grotesk', 'JetBrains Mono', 'Inter', 'Plus Jakarta Sans', 'Estedad', 'Vazirmatn', 'Sahel', 'Shabnam', 'Samim', 'Lalezar', 'Noto Sans Arabic'].forEach(ensureFontLoaded);
 
   // 2. Global Keyframes & Precision Styles
-  if (!document.getElementById('aqm-styles')) {
-    const style = document.createElement('style');
+  let style = document.getElementById('aqm-styles');
+  if (!style) {
+    style = document.createElement('style');
     style.id = 'aqm-styles';
-    style.textContent = `
+    document.head.appendChild(style);
+  }
+  style.textContent = `
       @keyframes aqm-pulse-dot {
         0%, 100% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 5px currentColor); }
         50% { transform: scale(0.75); opacity: 0.5; filter: drop-shadow(0 0 1px currentColor); }
@@ -262,8 +265,56 @@
         opacity: 1;
       }
     `;
-    document.head.appendChild(style);
+
+  let swStyleTag = document.getElementById('aqm-switcher-styles');
+  if (!swStyleTag) {
+    swStyleTag = document.createElement('style');
+    swStyleTag.id = 'aqm-switcher-styles';
+    document.head.appendChild(swStyleTag);
   }
+  swStyleTag.textContent = `
+    .aqm-switcher-modal {
+      position: fixed !important;
+      inset: 0 !important;
+      background: rgba(0, 0, 0, 0.72) !important;
+      backdrop-filter: blur(16px) !important;
+      -webkit-backdrop-filter: blur(16px) !important;
+      z-index: 2147483647 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      visibility: hidden !important;
+      transition: opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.24s !important;
+    }
+    .aqm-switcher-modal.aqm-active {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      visibility: visible !important;
+    }
+    .aqm-switcher-sheet {
+      width: 790px !important;
+      max-width: 95vw !important;
+      height: 700px !important;
+      max-height: 90vh !important;
+      border-radius: 24px !important;
+      background: rgba(15, 23, 42, 0.82) !important;
+      backdrop-filter: blur(36px) saturate(190%) !important;
+      -webkit-backdrop-filter: blur(36px) saturate(190%) !important;
+      border: 1px solid rgba(255, 255, 255, 0.18) !important;
+      box-shadow: 0 35px 80px -15px rgba(0, 0, 0, 0.75), inset 0 1px 2px rgba(255, 255, 255, 0.25) !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+      transform: scale(0.96) translateY(12px) !important;
+      transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      user-select: none !important;
+    }
+    .aqm-switcher-modal.aqm-active .aqm-switcher-sheet {
+      transform: scale(1) translateY(0) !important;
+    }
+  `;
 
   // 3. Bespoke Themes with Unique Font Pairings, Textures & Deep Aesthetics
   const THEMES = {
@@ -2343,11 +2394,26 @@
         if (e.target === modal && !swIsMigrating) closeSwitcherModal();
       };
       window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && modal.classList.contains('aqm-active') && !swIsMigrating) {
+        if (e.key === 'Escape' && (modal.classList.contains('aqm-active') || modal.style.visibility === 'visible') && !swIsMigrating) {
           closeSwitcherModal();
         }
       });
     }
+
+    modal.style.position = 'fixed';
+    modal.style.inset = '0';
+    modal.style.zIndex = '2147483647';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.background = 'rgba(0, 0, 0, 0.72)';
+    modal.style.backdropFilter = 'blur(16px)';
+    modal.style.webkitBackdropFilter = 'blur(16px)';
+    modal.style.opacity = '1';
+    modal.style.pointerEvents = 'auto';
+    modal.style.visibility = 'visible';
+    modal.style.transition = 'opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.24s';
+
     modal.classList.add('aqm-active');
     renderSwitcherModal();
     fetchSwitcherState(() => {
@@ -2357,12 +2423,17 @@
 
   function closeSwitcherModal() {
     const modal = document.getElementById('antigravity-switcher-modal');
-    if (modal) modal.classList.remove('aqm-active');
+    if (modal) {
+      modal.classList.remove('aqm-active');
+      modal.style.opacity = '0';
+      modal.style.pointerEvents = 'none';
+      modal.style.visibility = 'hidden';
+    }
   }
 
   function toggleSwitcherModal() {
     const modal = document.getElementById('antigravity-switcher-modal');
-    if (modal && modal.classList.contains('aqm-active')) {
+    if (modal && (modal.classList.contains('aqm-active') || modal.style.visibility === 'visible')) {
       closeSwitcherModal();
     } else {
       openSwitcherModal();
@@ -3051,9 +3122,48 @@
     accPill.style.userSelect = 'none';
     accPill.style.transition = 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)';
 
+    function getCleanUserDisplayName(rawCandidate) {
+      let cached = '';
+      try { cached = localStorage.getItem('antigravity:fixed_user_name') || ''; } catch (e) {}
+
+      let candidate = rawCandidate || (swState.activeAccount && swState.activeAccount.name) || '';
+      if (!candidate && swState.activeAccount && swState.activeAccount.email) {
+        candidate = swState.activeAccount.email;
+      }
+      if (!candidate && currentUsage && currentUsage.email) {
+        candidate = currentUsage.email;
+      }
+      if (!candidate && cached) {
+        return cached;
+      }
+      if (!candidate) {
+        return 'Madgod';
+      }
+
+      if (candidate.includes('@')) {
+        candidate = candidate.split('@')[0];
+      }
+      if (candidate.includes('.')) {
+        candidate = candidate.split('.')[0];
+      }
+      if (candidate.includes('+')) {
+        candidate = candidate.split('+')[0];
+      }
+
+      candidate = candidate.trim();
+      if (candidate.length > 0) {
+        candidate = candidate.charAt(0).toUpperCase() + candidate.slice(1);
+      } else {
+        candidate = 'Madgod';
+      }
+
+      try { localStorage.setItem('antigravity:fixed_user_name', candidate); } catch (e) {}
+      return candidate;
+    }
+
     const accUser = swState.activeAccount || {};
     const accEmail = accUser.email || currentUsage.email || 'madgod.cum@gmail.com';
-    const accName = accUser.name || (accEmail ? accEmail.split('@')[0] : 'Madgod');
+    const accName = getCleanUserDisplayName(accUser.name);
     const accAvatar = accUser.avatar || '';
     const accTier = accUser.tier || 'Google AI Pro';
     const accTierCode = (accUser.tier_code || 'pro').toLowerCase();
@@ -3062,18 +3172,26 @@
     const tierBadgeColor = accTierCode === 'ultra' ? '#ffffff' : (accTierCode === 'pro' ? '#fbbf24' : '#94a3b8');
     const tierBadgeBorder = accTierCode === 'ultra' ? 'rgba(236,72,153,0.5)' : (accTierCode === 'pro' ? 'rgba(251,191,36,0.45)' : 'rgba(148,163,184,0.25)');
 
-    accPill.title = `اکانت فعال: ${accEmail} (${accTier})\nبرای سوئیچ اکانت یا جابجایی پروژه‌ها کلیک کنید`;
+    accPill.title = `اکانت فعال: ${accName} (${accTier})\nبرای سوئیچ اکانت یا جابجایی پروژه‌ها کلیک کنید`;
     accPill.innerHTML = `
-      <span style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;animation:aqm-pulse-dot 2s infinite ease-in-out;"></span>
-      ${accAvatar ? `<img src="${accAvatar}" style="width:17px;height:17px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,0.3);" />` : `<span style="font-size:11px;">⚡️</span>`}
-      <span style="letter-spacing:-0.01em;font-weight:700;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" dir="ltr">${accName}</span>
-      <span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:9999px;background:${tierBadgeBg};color:${tierBadgeColor};border:1px solid ${tierBadgeBorder};text-transform:uppercase;letter-spacing:0.02em;">${accTierCode.toUpperCase()}</span>
-      <span style="font-size:8px;opacity:0.6;margin-left:1px;">▼</span>
+      <span style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;animation:aqm-pulse-dot 2s infinite ease-in-out;pointer-events:none;"></span>
+      ${accAvatar ? `<img src="${accAvatar}" style="width:17px;height:17px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,0.3);pointer-events:none;" />` : `<span style="font-size:11px;pointer-events:none;">⚡️</span>`}
+      <span style="letter-spacing:-0.01em;font-weight:700;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;" dir="ltr">${accName}</span>
+      <span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:9999px;background:${tierBadgeBg};color:${tierBadgeColor};border:1px solid ${tierBadgeBorder};text-transform:uppercase;letter-spacing:0.02em;pointer-events:none;">${accTierCode.toUpperCase()}</span>
+      <span style="font-size:8px;opacity:0.6;margin-left:1px;pointer-events:none;">▼</span>
     `;
 
     accPill.onclick = (e) => {
-      e.stopPropagation();
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       toggleSwitcherModal();
+    };
+    accPill.onpointerdown = (e) => {
+      if (e) {
+        e.stopPropagation();
+      }
     };
 
     accPill.onmouseenter = () => { accPill.style.transform = 'translateY(-1px) scale(1.02)'; };
@@ -3139,6 +3257,9 @@
     }, 1200);
   }
 
+  window.__openSwitcherModal = openSwitcherModal;
+  window.__closeSwitcherModal = closeSwitcherModal;
+  window.__toggleSwitcherModal = toggleSwitcherModal;
   window.__renderAntigravityBadge = renderBadge;
   window.__refreshAntigravityQuota = refreshQuota;
   window.__openAntigravityPopover = () => {
