@@ -2,7 +2,8 @@
 set -e
 
 ARCH="$(uname -m)"
-echo "🚀 Installing Antigravity Account Switcher..."
+echo "🚀 Installing Antigravity Account Switcher & Migration Suite..."
+echo "👨‍💻 Developed by: Madgod-xyz (https://github.com/Madgod-xyz)"
 if [ "$ARCH" = "arm64" ]; then
     echo "🍏 Detected Architecture: Apple Silicon (M1/M2/M3/M4 - arm64)"
 else

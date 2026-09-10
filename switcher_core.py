@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Antigravity Account Switcher
-Created by Rick Sanchez (https://github.com/m4tinbeigi-official)
-Universal (Apple Silicon & Intel) 1-click Google account switcher for Google Antigravity on macOS.
+Antigravity Account Switcher & Project Migration Suite
+Author: Madgod-xyz (https://github.com/Madgod-xyz/antigravity-account-switcher)
+Universal (Apple Silicon & Intel) 1-click Google account switcher & migration suite for Google Antigravity on macOS.
 Interacts directly with macOS Keychain (service: 'gemini', account: 'antigravity').
 """
 
@@ -18,8 +18,8 @@ import platform
 
 ACCOUNTS_DIR = os.path.expanduser('~/.gemini/accounts')
 MANIFEST_PATH = os.path.join(ACCOUNTS_DIR, 'manifest.json')
-GITHUB_REPO_URL = "https://github.com/m4tinbeigi-official/antigravity-account-switcher"
-AUTHOR_NAME = "Rick Sanchez (@m4tinbeigi-official)"
+GITHUB_REPO_URL = "https://github.com/Madgod-xyz/antigravity-account-switcher"
+AUTHOR_NAME = "Madgod-xyz (https://github.com/Madgod-xyz)"
 
 _CID_CODES = [49, 48, 55, 49, 48, 48, 54, 48, 54, 48, 53, 57, 49, 45, 116, 109, 104, 115, 115, 105, 110, 50, 104, 50, 49, 108, 99, 114, 101, 50, 51, 53, 118, 116, 111, 108, 111, 106, 104, 52, 103, 52, 48, 51, 101, 112, 46, 97, 112, 112, 115, 46, 103, 111, 111, 103, 108, 101, 117, 115, 101, 114, 99, 111, 110, 116, 101, 110, 116, 46, 99, 111, 109]
 _SEC_CODES = [71, 79, 67, 83, 80, 88, 45, 75, 53, 56, 70, 87, 82, 52, 56, 54, 76, 100, 76, 74, 49, 109, 76, 66, 56, 115, 88, 67, 52, 122, 54, 113, 68, 65, 102]
@@ -1012,13 +1012,14 @@ def main_menu():
             notify(f"Removed account {del_choice}", sound=False)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=f"Antigravity Account Switcher by {AUTHOR_NAME}")
-    parser.add_argument('-u', '--usage', action='store_true', help="Display Antigravity usage in Claude Code CLI style")
-    parser.add_argument('--usage-gui', action='store_true', help="Open interactive Claude-style desktop usage dashboard")
+    parser = argparse.ArgumentParser(description=f"Antigravity Account Switcher & Migration Suite by {AUTHOR_NAME}")
+    parser.add_argument('-u', '--usage', action='store_true', help="Display Antigravity usage in terminal")
+    parser.add_argument('--gui', action='store_true', help="Open interactive iOS Liquid Glass desktop dashboard")
     parser.add_argument('--list', action='store_true', help="List saved accounts")
     parser.add_argument('--switch', type=str, help="Switch to specific account")
     parser.add_argument('--save', nargs='?', const='', help="Save current account with optional name")
     parser.add_argument('--logout', action='store_true', help="Log out from current account")
+    parser.add_argument('--migrate', action='store_true', help="List or start migration")
     parser.add_argument('--github', action='store_true', help="Open GitHub project page")
     parser.add_argument('--about', action='store_true', help="Display creator & project info")
     args = parser.parse_args()
@@ -1030,19 +1031,21 @@ if __name__ == '__main__':
             sys.exit(1)
         usage = fetch_antigravity_usage(curr)
         print_claude_cli_usage(usage)
-    elif args.usage_gui:
-        open_claude_usage_window()
+    elif args.gui:
+        import server
+        server.launch_gui()
     elif args.list:
         m = load_manifest()
         curr = get_current_keychain_token()
         print(f"\n🚀 Antigravity Accounts [{get_arch_label()}]")
-        print(f"👨‍💻 Created by Rick Sanchez ({GITHUB_REPO_URL})\n")
+        print(f"👨‍💻 Developed by: {AUTHOR_NAME} ({GITHUB_REPO_URL})\n")
         for k, v in m.items():
             active = ""
             tf = v.get('token_file')
             if curr and tf and os.path.exists(tf) and open(tf).read().strip() == curr:
-                active = " [ACTIVE]"
-            print(f" • {k}{active} (Saved: {v.get('saved_at', 'N/A')})")
+                active = " [ACTIVE ●]"
+            tier = f"[{v.get('tier', 'Pro')}]"
+            print(f" • {k} {tier}{active} (Saved: {v.get('saved_at', 'N/A')})")
         print()
     elif args.switch:
         switch_to_account(args.switch)
@@ -1050,9 +1053,17 @@ if __name__ == '__main__':
         save_current_account(args.save if args.save else None)
     elif args.logout:
         logout_and_add_account()
+    elif args.migrate:
+        import migration_engine
+        print(json.dumps(migration_engine.list_conversations(), indent=2, ensure_ascii=False))
     elif args.github:
         open_github()
     elif args.about:
         show_about()
     else:
-        main_menu()
+        # Default: Launch the iOS Liquid Glass GUI
+        try:
+            import server
+            server.launch_gui()
+        except Exception:
+            main_menu()

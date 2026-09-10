@@ -1,9 +1,10 @@
-<#
+﻿<#
 .SYNOPSIS
-    Antigravity Account Switcher for Windows 10 & 11
-    Created by Rick Sanchez (https://github.com/m4tinbeigi-official)
-    Seamless 1-click Google account switcher for Google Antigravity.
-    Communicates directly with Windows Credential Manager (advapi32.dll).
+    Antigravity Account Switcher & Migration Suite for Windows 10 & 11
+    Author: Madgod-xyz (https://github.com/Madgod-xyz/antigravity-account-switcher)
+    Description:
+        Seamless 1-click Google account switcher & project migration suite for Google Antigravity.
+        Features iOS Liquid Glass UI, multi-language support (EN, FA, ZH, ES), and live model quotas.
 #>
 
 param (
@@ -12,15 +13,21 @@ param (
     [string]$Switch,
     [switch]$Save,
     [switch]$Logout,
+    [string]$Migrate,
     [switch]$About,
-    [switch]$GitHub
+    [switch]$GitHub,
+    [switch]$CLI
 )
 
-$GitHubRepoUrl = "https://github.com/m4tinbeigi-official/antigravity-account-switcher"
-$AuthorName = "Rick Sanchez (@m4tinbeigi-official)"
+$GitHubRepoUrl = "https://github.com/Madgod-xyz/antigravity-account-switcher"
+$AuthorName = "Madgod-xyz (https://github.com/Madgod-xyz)"
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$AppDir = Join-Path $ScriptDir "app"
+$AccountsDir = Join-Path $HOME ".gemini\accounts"
+$ManifestPath = Join-Path $AccountsDir "manifest.json"
 
 # -------------------------------------------------------------
-# C# Native Windows Credential Manager Interop
+# C# Native Windows Credential Manager Interop (advapi32.dll)
 # -------------------------------------------------------------
 if (-not ([System.Management.Automation.PSTypeName]'WinCred').Type) {
     $csharpCode = @"
@@ -65,7 +72,7 @@ if (-not ([System.Management.Automation.PSTypeName]'WinCred').Type) {
                 byte[] bytes = new byte[cred.CredentialBlobSize];
                 Marshal.Copy(cred.CredentialBlob, bytes, 0, cred.CredentialBlobSize);
                 string utf8 = Encoding.UTF8.GetString(bytes);
-                if (utf8.StartsWith("go-keyring-base64:")) return utf8;
+                if (utf8.StartsWith("go-keyring-base64:") || utf8.StartsWith("{")) return utf8;
                 return Encoding.Unicode.GetString(bytes);
             } finally {
                 CredFree(credPtr);
@@ -98,9 +105,6 @@ if (-not ([System.Management.Automation.PSTypeName]'WinCred').Type) {
     Add-Type -TypeDefinition $csharpCode -Language CSharp
 }
 
-$AccountsDir = Join-Path $HOME ".gemini\accounts"
-$ManifestPath = Join-Path $AccountsDir "manifest.json"
-
 if (!(Test-Path $AccountsDir)) {
     New-Item -ItemType Directory -Path $AccountsDir -Force | Out-Null
 }
@@ -108,7 +112,7 @@ if (!(Test-Path $AccountsDir)) {
 function Get-Manifest {
     if (Test-Path $ManifestPath) {
         try {
-            return Get-Content $ManifestPath -Raw | ConvertFrom-Json
+            return Get-Content $ManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
         } catch {
             return @{}
         }
@@ -121,28 +125,16 @@ function Save-Manifest($manifest) {
 }
 
 function Get-CurrentToken {
-    return [WinCred]::Read("gemini")
-}
-
-function Extract-Email($tokenStr) {
-    if (!$tokenStr -or !$tokenStr.StartsWith("go-keyring-base64:")) { return $null }
-    try {
-        $b64 = $tokenStr.Substring("go-keyring-base64:".Length)
-        $jsonBytes = [System.Convert]::FromBase64String($b64)
-        $jsonStr = [System.Text.Encoding]::UTF8.GetString($jsonBytes)
-        $data = $jsonStr | ConvertFrom-Json
-        $accessToken = $data.token.access_token
-        if ($accessToken) {
-            $headers = @{ "Authorization" = "Bearer $accessToken" }
-            $resp = Invoke-RestMethod -Uri "https://www.googleapis.com/oauth2/v3/userinfo" -Headers $headers -TimeoutSec 3 -ErrorAction SilentlyContinue
-            if ($resp.email) { return $resp.email }
-        }
-    } catch {}
+    $targets = @("gemini:antigravity", "gemini", "antigravity")
+    foreach ($t in $targets) {
+        $val = [WinCred]::Read($t)
+        if ($val) { return $val }
+    }
     return $null
 }
 
 function Restart-Antigravity {
-    Write-Host "🔄 Restarting Antigravity..." -ForegroundColor Cyan
+    Write-Host "🔄 Restarting Google Antigravity..." -ForegroundColor Cyan
     Get-Process -Name "Antigravity" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 1
     
@@ -163,36 +155,51 @@ function Switch-Account($accountKey) {
     $manifest = Get-Manifest
     $prop = $manifest.PSObject.Properties[$accountKey]
     if (!$prop) {
-        [System.Windows.Forms.MessageBox]::Show("Account '$accountKey' not found.", "Error", 0, 16) | Out-Null
-        return
+        Write-Host "❌ Account '$accountKey' not found in manifest." -ForegroundColor Red
+        return $false
     }
     $tokenFile = $prop.Value.token_file
     if (!(Test-Path $tokenFile)) {
-        [System.Windows.Forms.MessageBox]::Show("Token file missing for '$accountKey'.", "Error", 0, 16) | Out-Null
-        return
+        Write-Host "❌ Token file missing for '$accountKey'." -ForegroundColor Red
+        return $false
     }
-    $token = Get-Content $tokenFile -Raw
-    $ok = [WinCred]::Write("gemini", "antigravity", $token.Trim())
-    if ($ok) {
+    $token = (Get-Content $tokenFile -Raw -Encoding UTF8).Trim()
+    
+    # Write to both targets for maximum compatibility
+    $ok1 = [WinCred]::Write("gemini:antigravity", "antigravity", $token)
+    $ok2 = [WinCred]::Write("gemini", "antigravity", $token)
+    
+    if ($ok1 -or $ok2) {
         Restart-Antigravity
-        [System.Windows.Forms.MessageBox]::Show("Successfully switched to $accountKey!`n`nCreated by Rick Sanchez", "Antigravity Switcher", 0, 64) | Out-Null
+        Write-Host "✓ Successfully switched to $accountKey!" -ForegroundColor Green
+        return $true
     } else {
-        [System.Windows.Forms.MessageBox]::Show("Failed to write to Windows Credential Manager.", "Error", 0, 16) | Out-Null
+        Write-Host "❌ Failed to write credential to Windows Credential Manager." -ForegroundColor Red
+        return $false
     }
 }
 
 function Save-CurrentAccount {
     $token = Get-CurrentToken
     if (!$token) {
-        [System.Windows.Forms.MessageBox]::Show("No active Antigravity account found in Windows Credential Manager. Please sign in to Antigravity first.", "Notice", 0, 48) | Out-Null
-        return
+        Write-Host "❌ No active Antigravity account found. Please sign in to Antigravity first." -ForegroundColor Yellow
+        return $false
     }
-    $email = Extract-Email $token
-    if (!$email) {
-        Add-Type -AssemblyName Microsoft.VisualBasic
-        $email = [Microsoft.VisualBasic.Interaction]::InputBox("Enter name/email for this account:", "Save Account", "account@gmail.com")
-        if (!$email) { return }
-    }
+
+    # Fetch info using quota engine
+    $pyScript = Join-Path $ScriptDir "quota_engine.py"
+    $quotaData = $null
+    try {
+        $rawLines = python $pyScript
+        $jsonStr = $rawLines -join "`n"
+        $quotaData = $jsonStr | ConvertFrom-Json
+    } catch {}
+
+    $email = if ($quotaData -and $quotaData.email) { $quotaData.email } else { "user@antigravity.ai" }
+    $tier = if ($quotaData -and $quotaData.tier) { $quotaData.tier } else { "Free" }
+    $tierCode = if ($quotaData -and $quotaData.tier_code) { $quotaData.tier_code } else { "free" }
+    $remPct = if ($quotaData -and $quotaData.session) { $quotaData.session.remaining_pct } else { 100 }
+
     $tokenFile = Join-Path $AccountsDir "$($email -replace '[\\/:*?""<>|]', '_').token"
     $token | Set-Content $tokenFile -Encoding UTF8
     
@@ -200,145 +207,130 @@ function Save-CurrentAccount {
     $newEntry = [PSCustomObject]@{
         label = $email
         email = $email
+        tier = $tier
+        tier_code = $tierCode
+        remaining_pct = $remPct
         token_file = $tokenFile
         saved_at = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     }
     $manifest | Add-Member -MemberType NoteProperty -Name $email -Value $newEntry -Force
     Save-Manifest $manifest
-    [System.Windows.Forms.MessageBox]::Show("Account '$email' saved successfully!", "Antigravity Switcher", 0, 64) | Out-Null
+    Write-Host "✓ Account '$email' saved successfully!" -ForegroundColor Green
+    return $true
 }
 
 function Logout-And-Add {
-    $token = Get-CurrentToken
-    if ($token) {
-        $res = [System.Windows.Forms.MessageBox]::Show("Would you like to save the current account before logging out?", "Confirm", 3, 32)
-        if ($res -eq [System.Windows.Forms.DialogResult]::Cancel) { return }
-        if ($res -eq [System.Windows.Forms.DialogResult]::Yes) { Save-CurrentAccount }
-    }
+    [WinCred]::Delete("gemini:antigravity") | Out-Null
     [WinCred]::Delete("gemini") | Out-Null
     Restart-Antigravity
-    [System.Windows.Forms.MessageBox]::Show("Logged out from Antigravity!`n`nAntigravity is reopening. Sign in with your other Gmail, then run Switcher again to save it!", "Notice", 0, 64) | Out-Null
+    Write-Host "✓ Logged out from Antigravity. Please sign in with your other Google account!" -ForegroundColor Green
 }
 
-function Show-AboutDialog {
-    $msg = "🚀 Antigravity Account Switcher`n`n👨‍💻 Creator: $AuthorName`n🌐 GitHub: $GitHubRepoUrl`n`nWould you like to open the GitHub repository to give it a ⭐ Star?"
-    $ans = [System.Windows.Forms.MessageBox]::Show($msg, "About Antigravity Switcher", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Information)
-    if ($ans -eq [System.Windows.Forms.DialogResult]::Yes) {
-        Start-Process $GitHubRepoUrl
-    }
-}
-
-$CidCodes = @(49, 48, 55, 49, 48, 48, 54, 48, 54, 48, 53, 57, 49, 45, 116, 109, 104, 115, 115, 105, 110, 50, 104, 50, 49, 108, 99, 114, 101, 50, 51, 53, 118, 116, 111, 108, 111, 106, 104, 52, 103, 52, 48, 51, 101, 112, 46, 97, 112, 112, 115, 46, 103, 111, 111, 103, 108, 101, 117, 115, 101, 114, 99, 111, 110, 116, 101, 110, 116, 46, 99, 111, 109)
-$SecCodes = @(71, 79, 67, 83, 80, 88, 45, 75, 53, 56, 70, 87, 82, 52, 56, 54, 76, 100, 76, 74, 49, 109, 76, 66, 56, 115, 88, 67, 52, 122, 54, 113, 68, 65, 102)
-$OAuthClientId = -join ($CidCodes | ForEach-Object { [char]$_ })
-$OAuthClientSecret = -join ($SecCodes | ForEach-Object { [char]$_ })
-
-function Get-AntigravityUsage($tokenStr) {
-    if (-not $tokenStr -or -not $tokenStr.StartsWith("go-keyring-base64:")) { return $null }
+function Show-UsageCLI {
+    $pyScript = Join-Path $ScriptDir "quota_engine.py"
     try {
-        $rawB64 = $tokenStr.Substring("go-keyring-base64:".Length)
-        $bytes = [System.Convert]::FromBase64String($rawB64)
-        $json = [System.Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json
-        $token = $json.token
-        $accessToken = $token.access_token
-        $refreshToken = $token.refresh_token
-
-        $headers = @{
-            "Authorization" = "Bearer $accessToken"
-            "Content-Type"  = "application/json"
-            "User-Agent"    = "antigravity"
+        $rawLines = python $pyScript
+        $jsonStr = $rawLines -join "`n"
+        $data = $jsonStr | ConvertFrom-Json
+        if (!$data -or $data.error) {
+            Write-Host "❌ Could not retrieve Antigravity usage. Please check internet connection or sign in." -ForegroundColor Red
+            return
         }
 
-        $modelsData = $null
-        try {
-            $modelsData = Invoke-RestMethod -Uri "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels" -Method Post -Headers $headers -Body "{}" -TimeoutSec 5
-        } catch {
-            if ($refreshToken) {
-                try {
-                    $body = "client_id=$OAuthClientId&client_secret=$OAuthClientSecret&grant_type=refresh_token&refresh_token=$refreshToken"
-                    $rfResp = Invoke-RestMethod -Uri "https://oauth2.googleapis.com/token" -Method Post -Body $body -ContentType "application/x-www-form-urlencoded" -TimeoutSec 5
-                    $accessToken = $rfResp.access_token
-                    $headers["Authorization"] = "Bearer $accessToken"
-                    $modelsData = Invoke-RestMethod -Uri "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels" -Method Post -Headers $headers -Body "{}" -TimeoutSec 5
-                } catch {}
-            }
+        $email = $data.email
+        $tier = $data.tier
+        $sess = $data.session
+        $used = $sess.used_pct
+        $rem = $sess.remaining_pct
+        $countdown = $sess.resets_in
+
+        function Make-Bar($pct, $width=20) {
+            $fill = [math]::Min($width, [math]::Max(0, [math]::Round(($pct / 100.0) * $width)))
+            $empty = $width - $fill
+            return ("█" * $fill) + ("░" * $empty)
         }
-        return $modelsData
+
+        $bar = Make-Bar $used 22
+
+        Write-Host "`n┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
+        Write-Host "│             ANTIGRAVITY ACCOUNT SUITE • MADGOD-XYZ          │" -ForegroundColor Cyan
+        Write-Host "│   Plan: $tier  •  Account: $email" -ForegroundColor Green
+        Write-Host "├─────────────────────────────────────────────────────────────┤" -ForegroundColor Cyan
+        Write-Host "│  Active Session Quota                                       │" -ForegroundColor White
+        Write-Host "│  $used% used ($rem% remaining) • Resets: $countdown" -ForegroundColor Yellow
+        Write-Host "│  [$bar] $used%                                 │" -ForegroundColor Cyan
+        Write-Host "├─────────────────────────────────────────────────────────────┤" -ForegroundColor Cyan
+        Write-Host "│  Model Breakdown                                            │" -ForegroundColor White
+        foreach ($p in $data.pools) {
+            $pBar = Make-Bar $p.used_pct 16
+            Write-Host "│  • $($p.name): $($p.used_pct)% used [$pBar] (Resets: $($p.resets_in))" -ForegroundColor White
+        }
+        Write-Host "└─────────────────────────────────────────────────────────────┘`n" -ForegroundColor Cyan
     } catch {
-        return $null
+        Write-Host "❌ Error running quota engine: $_" -ForegroundColor Red
     }
 }
 
-function Show-ClaudeUsageCLI {
-    $curr = Get-CurrentToken
-    if (-not $curr) {
-        Write-Host "`n❌ No active Antigravity session found in Windows Credential Manager. Please sign in first.`n" -ForegroundColor Red
-        return
+function Open-LiquidGlassUI {
+    # Prepare live state payload
+    $pyQuota = Join-Path $ScriptDir "quota_engine.py"
+    $pyMigrate = Join-Path $ScriptDir "migration_engine.py"
+    
+    $quotaJson = "{}"
+    $convsJson = "[]"
+    try {
+        $quotaLines = python $pyQuota
+        $quotaJson = $quotaLines -join "`n"
+    } catch {}
+    try {
+        $convsLines = python $pyMigrate --list
+        $convsJson = $convsLines -join "`n"
+    } catch {}
+
+    $manifest = Get-Manifest
+    $manifestJson = $manifest | ConvertTo-Json -Depth 4
+
+    # Generate standalone runner html with baked-in data for instant offline launch
+    $templateHtml = Get-Content (Join-Path $AppDir "index.html") -Raw -Encoding UTF8
+    $injectedScript = "<script>`nwindow.INITIAL_PAYLOAD = { activeAccount: " + $quotaJson + ", savedAccounts: " + $manifestJson + " };`nwindow.INITIAL_CONVERSATIONS = " + $convsJson + ";`n</script>"
+    $runtimeHtml = $templateHtml.Replace("<!-- Scripts -->", "$injectedScript`n  <!-- Scripts -->")
+    $runtimePath = Join-Path $AppDir "runtime_window.html"
+    $runtimeHtml | Set-Content $runtimePath -Encoding UTF8
+
+    # Launch in standalone App mode via Edge or Chrome
+    $edgePaths = @(
+        "$env:ProgramFiles(x86)\Microsoft\Edge\Application\msedge.exe",
+        "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe"
+    )
+    $chromePaths = @(
+        "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe",
+        "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+        "$env:ProgramFiles(x86)\Google\Chrome\Application\chrome.exe"
+    )
+
+    $browserExe = ($edgePaths + $chromePaths) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+    if ($browserExe) {
+        $fileUrl = "file:///$($runtimePath -replace '\\', '/')"
+        $argsList = "--app=$fileUrl --window-size=620,860 --disable-features=Translate"
+        Start-Process $browserExe -ArgumentList $argsList
+    } else {
+        Start-Process $runtimePath
     }
-    $email = Extract-Email $curr
-    Write-Host "`nFetching live Antigravity usage..." -ForegroundColor Gray
-    $modelsData = Get-AntigravityUsage $curr
-    if (-not $modelsData -or -not $modelsData.models) {
-        Write-Host "❌ Failed to retrieve usage. Please check internet connection.`n" -ForegroundColor Red
-        return
-    }
-
-    $geminiMinRem = 1.0
-    $claudeMinRem = 1.0
-
-    foreach ($prop in $modelsData.models.PSObject.Properties) {
-        $m = $prop.Value
-        if ($m.quotaInfo) {
-            $rem = [double]$m.quotaInfo.remainingFraction
-            if ($prop.Name -like "*claude*") {
-                if ($rem -lt $claudeMinRem) { $claudeMinRem = $rem }
-            } elseif ($prop.Name -like "*gemini*" -or $prop.Name -like "*flash*" -or $prop.Name -like "*pro*") {
-                if ($rem -lt $geminiMinRem) { $geminiMinRem = $rem }
-            }
-        }
-    }
-
-    $geminiUsed = [math]::Round((1.0 - $geminiMinRem) * 100, 1)
-    $geminiRem = [math]::Round($geminiMinRem * 100, 1)
-    $claudeUsed = [math]::Round((1.0 - $claudeMinRem) * 100, 1)
-
-    function Make-Bar($pct, $width=20) {
-        $fill = [math]::Min($width, [math]::Max(0, [math]::Round(($pct / 100.0) * $width)))
-        $empty = $width - $fill
-        return ("█" * $fill) + ("░" * $empty)
-    }
-
-    $bar = Make-Bar $geminiUsed 22
-
-    Write-Host "`n┌─────────────────────────────────────────────────────────────┐" -ForegroundColor DarkYellow
-    Write-Host "│                       ANTIGRAVITY USAGE                     │" -ForegroundColor DarkYellow
-    Write-Host "│   Plan: Antigravity / Google AI  •  Account: $email" -ForegroundColor Cyan
-    Write-Host "├─────────────────────────────────────────────────────────────┤" -ForegroundColor DarkYellow
-    Write-Host "│  Current session                                            │" -ForegroundColor White
-    Write-Host "│  $geminiUsed% used ($geminiRem% remaining)                             │" -ForegroundColor Yellow
-    Write-Host "│                                                             │" -ForegroundColor DarkYellow
-    Write-Host "│  [$bar]  $geminiUsed%                                  │" -ForegroundColor Green
-    Write-Host "├─────────────────────────────────────────────────────────────┤" -ForegroundColor DarkYellow
-    Write-Host "│  Model Quotas                                               │" -ForegroundColor White
-    Write-Host "│  • Gemini (Pro & Flash)                                     │" -ForegroundColor White
-    $gBar = Make-Bar $geminiUsed 16
-    Write-Host "│    $geminiUsed% used [$gBar]                                │" -ForegroundColor Green
-    Write-Host "│  • Claude 4.6 (Sonnet & Opus)                               │" -ForegroundColor White
-    $cBar = Make-Bar $claudeUsed 16
-    Write-Host "│    $claudeUsed% used [$cBar]                                │" -ForegroundColor Green
-    Write-Host "└─────────────────────────────────────────────────────────────┘`n" -ForegroundColor DarkYellow
 }
 
-# CLI Handling
+# -------------------------------------------------------------
+# CLI Dispatcher
+# -------------------------------------------------------------
 if ($Usage) {
-    Show-ClaudeUsageCLI
+    Show-UsageCLI
     exit
 }
 
 if ($About) {
-    Write-Host "`n🚀 Antigravity Account Switcher (Windows)" -ForegroundColor Cyan
-    Write-Host "👨‍💻 Creator: $AuthorName" -ForegroundColor Yellow
-    Write-Host "⭐ Star on GitHub: $GitHubRepoUrl`n" -ForegroundColor White
+    Write-Host "`n🚀 Antigravity Account Switcher & Migration Suite" -ForegroundColor Cyan
+    Write-Host "👨‍💻 Developed by: $AuthorName" -ForegroundColor Yellow
+    Write-Host "⭐ GitHub Repository: $GitHubRepoUrl`n" -ForegroundColor White
     exit
 }
 
@@ -350,15 +342,16 @@ if ($GitHub) {
 if ($List) {
     $manifest = Get-Manifest
     $curr = Get-CurrentToken
-    Write-Host "`n🚀 Antigravity Accounts (Windows)" -ForegroundColor Green
-    Write-Host "👨‍💻 Creator: $AuthorName ($GitHubRepoUrl)`n" -ForegroundColor Gray
+    Write-Host "`n🚀 Saved Antigravity Accounts [Windows]" -ForegroundColor Cyan
+    Write-Host "👨‍💻 Author: $AuthorName ($GitHubRepoUrl)`n" -ForegroundColor Gray
     foreach ($prop in $manifest.PSObject.Properties) {
         $active = ""
         $tf = $prop.Value.token_file
-        if ($curr -and (Test-Path $tf) -and ((Get-Content $tf -Raw).Trim() -eq $curr.Trim())) {
-            $active = " [ACTIVE]"
+        if ($curr -and (Test-Path $tf) -and ((Get-Content $tf -Raw -Encoding UTF8).Trim() -eq $curr.Trim())) {
+            $active = " [ACTIVE ●]"
         }
-        Write-Host " • $($prop.Name)$active (Saved: $($prop.Value.saved_at))"
+        $tier = if ($prop.Value.tier) { "[$($prop.Value.tier)]" } else { "[Free]" }
+        Write-Host " • $($prop.Name) $tier$active (Saved: $($prop.Value.saved_at))" -ForegroundColor White
     }
     Write-Host ""
     exit
@@ -379,101 +372,5 @@ if ($Logout) {
     exit
 }
 
-# Interactive WinForms GUI Menu
-Add-Type -AssemblyName System.Windows.Forms
-$manifest = Get-Manifest
-$curr = Get-CurrentToken
-$activeEmail = if ($curr) { Extract-Email $curr } else { $null }
-
-$form = New-Object System.Windows.Forms.Form
-$form.Text = "🚀 Antigravity Account Switcher • by Rick Sanchez"
-$form.Size = New-Object System.Drawing.Size(460, 540)
-$form.StartPosition = "CenterScreen"
-$form.FormBorderStyle = "FixedDialog"
-$form.MaximizeBox = $false
-
-$lbl = New-Object System.Windows.Forms.Label
-$lbl.Location = New-Object System.Drawing.Point(20, 15)
-$lbl.Size = New-Object System.Drawing.Size(400, 24)
-$lbl.Text = "Active Account: $(if ($activeEmail) { $activeEmail } else { 'Not Signed In' })"
-$lbl.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$form.Controls.Add($lbl)
-
-$lblAuthor = New-Object System.Windows.Forms.Label
-$lblAuthor.Location = New-Object System.Drawing.Point(20, 40)
-$lblAuthor.Size = New-Object System.Drawing.Size(400, 18)
-$lblAuthor.Text = "Created by Rick Sanchez • Windows 10/11 Edition"
-$lblAuthor.Font = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Italic)
-$lblAuthor.ForeColor = [System.Drawing.Color]::Gray
-$form.Controls.Add($lblAuthor)
-
-$listBox = New-Object System.Windows.Forms.ListBox
-$listBox.Location = New-Object System.Drawing.Point(20, 68)
-$listBox.Size = New-Object System.Drawing.Size(400, 160)
-$listBox.Font = New-Object System.Drawing.Font("Segoe UI", 10)
-foreach ($prop in $manifest.PSObject.Properties) {
-    $listBox.Items.Add($prop.Name) | Out-Null
-}
-if ($listBox.Items.Count -gt 0) { $listBox.SelectedIndex = 0 }
-$form.Controls.Add($listBox)
-
-# Usage Button (Claude Style)
-$btnUsage = New-Object System.Windows.Forms.Button
-$btnUsage.Location = New-Object System.Drawing.Point(20, 240)
-$btnUsage.Size = New-Object System.Drawing.Size(400, 36)
-$btnUsage.Text = "📊 View Usage & Limits (Claude Style)"
-$btnUsage.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-$btnUsage.Add_Click({
-    Show-ClaudeUsageCLI
-    [System.Windows.Forms.MessageBox]::Show("Live usage printed to console! Run 'powershell -File .\switcher_windows.ps1 -Usage' anytime.", "Antigravity Usage", 0, 64) | Out-Null
-})
-$form.Controls.Add($btnUsage)
-
-# Switch Button
-$btnSwitch = New-Object System.Windows.Forms.Button
-$btnSwitch.Location = New-Object System.Drawing.Point(20, 285)
-$btnSwitch.Size = New-Object System.Drawing.Size(190, 38)
-$btnSwitch.Text = "⚡️ Switch to Selected"
-$btnSwitch.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-$btnSwitch.Add_Click({
-    if ($listBox.SelectedItem) {
-        $form.Close()
-        Switch-Account $listBox.SelectedItem
-    }
-})
-$form.Controls.Add($btnSwitch)
-
-# Save Button
-$btnSave = New-Object System.Windows.Forms.Button
-$btnSave.Location = New-Object System.Drawing.Point(230, 285)
-$btnSave.Size = New-Object System.Drawing.Size(190, 38)
-$btnSave.Text = "💾 Save Current Account"
-$btnSave.Add_Click({
-    $form.Close()
-    Save-CurrentAccount
-})
-$form.Controls.Add($btnSave)
-
-# Logout Button
-$btnLogout = New-Object System.Windows.Forms.Button
-$btnLogout.Location = New-Object System.Drawing.Point(20, 335)
-$btnLogout.Size = New-Object System.Drawing.Size(400, 38)
-$btnLogout.Text = "➕ Add New Account (Logout & Sign In)"
-$btnLogout.Add_Click({
-    $form.Close()
-    Logout-And-Add
-})
-$form.Controls.Add($btnLogout)
-
-# Star on GitHub / About Button
-$btnAbout = New-Object System.Windows.Forms.Button
-$btnAbout.Location = New-Object System.Drawing.Point(20, 385)
-$btnAbout.Size = New-Object System.Drawing.Size(400, 38)
-$btnAbout.Text = "⭐ Star on GitHub & About (by Rick Sanchez)"
-$btnAbout.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-$btnAbout.Add_Click({
-    Show-AboutDialog
-})
-$form.Controls.Add($btnAbout)
-
-$form.ShowDialog() | Out-Null
+# Default: Open the new iOS Liquid Glass GUI
+Open-LiquidGlassUI
