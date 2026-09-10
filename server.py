@@ -68,7 +68,7 @@ def restart_antigravity():
         time.sleep(1)
         subprocess.Popen(['open', '/Applications/Antigravity.app'])
 
-def switch_account(account_key):
+def switch_account(account_key, no_restart=False):
     manifest = load_manifest()
     entry = manifest.get(account_key)
     if not entry:
@@ -124,7 +124,8 @@ def switch_account(account_key):
     elif sys_name == 'macos':
         subprocess.run(['security', 'add-generic-password', '-U', '-s', 'gemini', '-a', 'antigravity', '-w', token])
 
-    restart_antigravity()
+    if not no_restart:
+        restart_antigravity()
     return {'success': True, 'account': account_key}
 
 def save_current_account():
@@ -156,7 +157,7 @@ def save_current_account():
     save_manifest(manifest)
     return {'success': True, 'email': email, 'tier': tier}
 
-def logout_account():
+def logout_account(no_restart=False):
     sys_name = quota_engine.get_current_system()
     if sys_name == 'windows':
         import ctypes
@@ -168,7 +169,8 @@ def logout_account():
         CredDelete('gemini', 1, 0)
     elif sys_name == 'macos':
         subprocess.run(['security', 'delete-generic-password', '-s', 'gemini', '-a', 'antigravity'])
-    restart_antigravity()
+    if not no_restart:
+        restart_antigravity()
     return {'success': True}
 
 class SwitcherHTTPHandler(SimpleHTTPRequestHandler):
@@ -217,11 +219,11 @@ class SwitcherHTTPHandler(SimpleHTTPRequestHandler):
 
         if self.path == '/api/switch':
             acc_key = data.get('accountKey')
-            resp = switch_account(acc_key)
+            resp = switch_account(acc_key, no_restart=data.get('noRestart', False))
         elif self.path == '/api/save':
             resp = save_current_account()
         elif self.path == '/api/logout':
-            resp = logout_account()
+            resp = logout_account(no_restart=data.get('noRestart', False))
         elif self.path == '/api/delete':
             acc_key = data.get('accountKey')
             m = load_manifest()

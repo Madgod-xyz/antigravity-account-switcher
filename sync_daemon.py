@@ -346,13 +346,13 @@ class QuotaHttpHandler(BaseHTTPRequestHandler):
             import server as srv_mod
             global _cached_account_info
             if self.path == '/api/switch':
-                resp = srv_mod.switch_account(data.get('accountKey'))
+                resp = srv_mod.switch_account(data.get('accountKey'), no_restart=data.get('noRestart', False))
                 _cached_account_info = None
             elif self.path == '/api/save':
                 resp = srv_mod.save_current_account()
                 _cached_account_info = None
             elif self.path == '/api/logout':
-                resp = srv_mod.logout_account()
+                resp = srv_mod.logout_account(no_restart=data.get('noRestart', False))
                 _cached_account_info = None
             elif self.path == '/api/delete':
                 m = srv_mod.load_manifest()
