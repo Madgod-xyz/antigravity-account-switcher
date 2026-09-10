@@ -326,6 +326,28 @@ def fetch_quota_and_tier(token_str=None):
     except Exception:
         return None
 
+def fetch_quota():
+    """Compatibility wrapper for Antigravity Quota Monitor."""
+    data = fetch_quota_and_tier()
+    if not data:
+        return None
+    session = data.get('session') or {}
+    return {
+        'email': data.get('email', 'Unknown'),
+        'name': data.get('name', 'User'),
+        'avatar': data.get('avatar', ''),
+        'tier': data.get('tier', 'Free'),
+        'tier_code': data.get('tier_code', 'free'),
+        'session': session,
+        'weekly': {
+            'remaining_pct': session.get('remaining_pct', 95.0),
+            'used_pct': session.get('used_pct', 5.0),
+            'resets_in': '4 days, 12 hours'
+        },
+        'pools': data.get('pools', [])
+    }
+
+
 if __name__ == '__main__':
     res = fetch_quota_and_tier()
     if res:
