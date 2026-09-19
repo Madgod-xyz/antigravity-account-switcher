@@ -149,19 +149,15 @@ def load_profile_sync_manifest():
     # Auto-seed existing projects
     projects = discover_raw_projects()
     for pid, pdata in projects.items():
-        is_switcher = "gravity suitch" in pdata.get('name', '').lower() or "gravity suitch" in pdata.get('path', '').lower()
-        assigned = [PRIMARY_ACCOUNT]
-        if is_switcher:
-            assigned.append(SECONDARY_ACCOUNT)
-        
+        assigned = [PRIMARY_ACCOUNT, SECONDARY_ACCOUNT] if SECONDARY_ACCOUNT else [PRIMARY_ACCOUNT]
         initial_manifest["project_profiles"][pid] = {
             "name": pdata.get("name", pid),
             "path": pdata.get("path", ""),
             "assigned_accounts": assigned,
-            "sync_mode": "shared" if len(assigned) > 1 else "isolated"
+            "sync_mode": "shared"
         }
         initial_manifest["accounts"][PRIMARY_ACCOUNT]["projects"].append(pid)
-        if is_switcher:
+        if SECONDARY_ACCOUNT:
             initial_manifest["accounts"][SECONDARY_ACCOUNT]["projects"].append(pid)
 
     save_profile_sync_manifest(initial_manifest)
@@ -576,11 +572,15 @@ def list_conversations(account=None, project_id=None):
 def get_allowed_conversations(account):
     """
     Returns list of conversation IDs allowed for the given account/instance.
-    Used for strict DOM filtering in Antigravity to prevent conversation bleed.
+    Used for selective DOM filtering in Antigravity.
     """
     target = norm_account(account)
     convs = list_conversations(account=target)
-    return [c["id"] for c in convs]
+    allowed = [c["id"] for c in convs]
+    if not allowed:
+        all_convs = list_conversations()
+        return [c["id"] for c in all_convs]
+    return allowed
 
 def assign_conversation_account(conv_id, account, action='add'):
     """Add or remove an account from a conversation's active assignment."""

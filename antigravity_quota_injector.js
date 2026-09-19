@@ -2628,7 +2628,15 @@
       } catch(e) {}
     }
 
-    if (!Array.isArray(allowedList)) return;
+    // Default safe: If allowedList is empty or not set, DO NOT hide anything! Show all!
+    if (!Array.isArray(allowedList) || allowedList.length === 0) {
+      document.querySelectorAll('[data-aqm-isolated="true"]').forEach(el => {
+        el.style.removeProperty('display');
+        el.removeAttribute('data-aqm-isolated');
+      });
+      return;
+    }
+
     const allowedSet = new Set(allowedList);
 
     const links = document.querySelectorAll('a[href*="/c/"]');
@@ -2711,20 +2719,13 @@
   }
 
   function callDaemonIpc(action, payload = {}) {
-    let handled = false;
     if (typeof window.__aqm_daemon_ipc === 'function') {
       try {
         window.__aqm_daemon_ipc(JSON.stringify({ action, ...payload }));
-        handled = true;
+        return true;
       } catch(e) {}
     }
-    if (!handled) {
-      try {
-        localStorage.setItem('antigravity:switcher_command', JSON.stringify({ action, ...payload, _ts: Date.now() }));
-        handled = true;
-      } catch(e) {}
-    }
-    return handled;
+    return false;
   }
 
   window.__onSwitcherStateUpdate = function(data) {
@@ -2779,12 +2780,6 @@
   window.__showSwitcherToast = showSwitcherToast;
 
   function fetchSwitcherState(cb) {
-    if (callDaemonIpc('getState')) {
-      if (cb) setTimeout(cb, 120);
-      return;
-    }
-    if (swState.isLoading) return;
-    swState.isLoading = true;
     fetch('http://127.0.0.1:39281/api/state')
       .then(r => r.json())
       .then(data => {
@@ -2792,7 +2787,6 @@
         if (cb) cb();
       })
       .catch(() => {
-        swState.isLoading = false;
         if (cb) cb();
       });
   }
@@ -3155,8 +3149,18 @@
           ` : swTab === 'projects' ? `
             <!-- PROJECTS TAB -->
             <div style="display:flex;flex-direction:column;gap:10px;">
-              <div style="font-size:11px;color:#94a3b8;line-height:1.5;padding:0 2px;">
-                ${t.projectsDesc}
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 2px;">
+                <div style="font-size:11px;color:#94a3b8;line-height:1.5;">
+                  ${t.projectsDesc}
+                </div>
+                <div style="display:flex;gap:6px;flex-shrink:0;">
+                  <button class="aqm-sw-btn" id="aqm-proj-allow-all-btn" style="padding:3px 8px;font-size:10.5px;color:#10b981;border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.08);">
+                    ✓ ${isFa ? 'مجاز کردن همه' : (swLang === 'es' ? 'Permitir Todos' : 'Allow All')}
+                  </button>
+                  <button class="aqm-sw-btn" id="aqm-proj-isolate-all-btn" style="padding:3px 8px;font-size:10.5px;color:#f87171;border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);">
+                    ✕ ${isFa ? 'جداسازی همه' : (swLang === 'es' ? 'Aislar Todos' : 'Isolate All')}
+                  </button>
+                </div>
               </div>
               ${projectsList.length === 0 ? `
                 <div class="aqm-sw-card" style="text-align:center;padding:24px 14px;border-style:dashed;">
@@ -3166,7 +3170,7 @@
                 <div style="display:flex;flex-direction:column;gap:7px;max-height:360px;overflow-y:auto;" class="aqm-custom-scroll">
                   ${projectsList.map(p => {
                     const assigned = p.assigned_accounts || ['instance_1'];
-                    const isAcc2 = assigned.includes('instance_2') || (email && assigned.includes(email));
+                    const isAcc2 = !!(p.is_instance2_enabled || p.is_shared || assigned.includes('instance_2') || assigned.some(a => isAccount2(a)));
                     return `
                       <div class="aqm-sw-card" style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
                         <div style="flex:1;min-width:0;">
@@ -3594,28 +3598,45 @@
     });
 
     // Projects Tab Actions
+    const allowAllBtn = modal.querySelector('#aqm-proj-allow-all-btn');
+    if (allowAllBtn) {
+      allowAllBtn.onclick = async () => {
+        showSwitcherToast(isFa ? 'در حال فعال‌سازی تمام پروژه‌ها برای اکانت ۲...' : 'Allowing all projects in Account 2...');
+        for (const p of projectsList) {
+          await fetch('http://127.0.0.1:39281/api/project_assign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ projectId: p.id, account: 'instance_2', enabled: true })
+          }).catch(() => {});
+        }
+        showSwitcherToast(isFa ? 'تمام پروژه‌ها برای اکانت ۲ فعال شدند' : 'All projects allowed in Account 2');
+        applyConversationIsolationFilter();
+        fetchSwitcherState(() => renderSwitcherModal());
+      };
+    }
+
+    const isolateAllBtn = modal.querySelector('#aqm-proj-isolate-all-btn');
+    if (isolateAllBtn) {
+      isolateAllBtn.onclick = async () => {
+        showSwitcherToast(isFa ? 'در حال جداسازی تمام پروژه‌ها از اکانت ۲...' : 'Isolating all projects to Account 1...');
+        for (const p of projectsList) {
+          await fetch('http://127.0.0.1:39281/api/project_unlink', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ projectId: p.id, account: 'instance_2' })
+          }).catch(() => {});
+        }
+        showSwitcherToast(isFa ? 'تمام پروژه‌ها از اکانت ۲ جدا شدند' : 'All projects isolated from Account 2');
+        applyConversationIsolationFilter();
+        fetchSwitcherState(() => renderSwitcherModal());
+      };
+    }
+
     modal.querySelectorAll('.aqm-proj-toggle-cb').forEach(cb => {
       cb.onchange = () => {
         const pid = cb.getAttribute('data-pid');
         const en = cb.checked;
         showSwitcherToast(isFa ? 'در حال به‌روزرسانی دسترسی پروژه...' : 'Updating project access...');
-        if (!en) {
-          if (callDaemonIpc('unlinkProject', { projectId: pid, account: 'instance_2' })) {
-            setTimeout(() => {
-              applyConversationIsolationFilter();
-              fetchSwitcherState(() => renderSwitcherModal());
-            }, 300);
-            return;
-          }
-        } else {
-          if (callDaemonIpc('assignProject', { projectId: pid, account: 'instance_2', enabled: true })) {
-            setTimeout(() => {
-              applyConversationIsolationFilter();
-              fetchSwitcherState(() => renderSwitcherModal());
-            }, 300);
-            return;
-          }
-        }
         const endpoint = en ? '/api/project_assign' : '/api/project_unlink';
         const payload = en ? { projectId: pid, account: 'instance_2', enabled: true } : { projectId: pid, account: 'instance_2' };
         fetch(`http://127.0.0.1:39281${endpoint}`, {
@@ -3643,13 +3664,6 @@
       btn.onclick = () => {
         const pid = btn.getAttribute('data-pid');
         showSwitcherToast(isFa ? 'در حال سینک پروژه به اکانت ۲...' : 'Syncing project to Account 2...');
-        if (callDaemonIpc('syncProject', { projectId: pid, targetAccount: 'instance_2' })) {
-          setTimeout(() => {
-            applyConversationIsolationFilter();
-            fetchSwitcherState(() => renderSwitcherModal());
-          }, 500);
-          return;
-        }
         fetch('http://127.0.0.1:39281/api/project_sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3675,17 +3689,10 @@
       btn.onclick = () => {
         const pid = btn.getAttribute('data-pid');
         showSwitcherToast(isFa ? 'در حال جداسازی پروژه از اکانت ۲...' : 'Unlinking project from Account 2...');
-        if (callDaemonIpc('unlinkProject', { projectId: pid, account: 'instance_2' })) {
-          setTimeout(() => {
-            applyConversationIsolationFilter();
-            fetchSwitcherState(() => renderSwitcherModal());
-          }, 300);
-          return;
-        }
         fetch('http://127.0.0.1:39281/api/project_unlink', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ projectId: pid, account: (isInstance2Window() ? (window.__antigravity_account || 'instance_2') : email) })
+          body: JSON.stringify({ projectId: pid, account: 'instance_2' })
         })
         .then(r => r.json())
         .then(res => {
