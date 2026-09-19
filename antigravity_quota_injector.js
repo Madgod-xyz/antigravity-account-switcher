@@ -8,6 +8,7 @@
   if (existingAccPill) existingAccPill.remove();
 
   if (window.__aqm_dom_interval) { clearInterval(window.__aqm_dom_interval); window.__aqm_dom_interval = null; }
+  if (window.__aqm_task_interval) { clearInterval(window.__aqm_task_interval); window.__aqm_task_interval = null; }
   if (window.__aqm_token_observer) { window.__aqm_token_observer.disconnect(); window.__aqm_token_observer = null; }
   if (window.__aqm_submenu_observer) { window.__aqm_submenu_observer.disconnect(); window.__aqm_submenu_observer = null; }
   if (window.__aqm_dom_observer) { window.__aqm_dom_observer.disconnect(); window.__aqm_dom_observer = null; }
@@ -267,6 +268,11 @@
       .aqm-sw-toast.show {
         transform: translateX(-50%) translateY(0);
         opacity: 1;
+        pointer-events: auto;
+      }
+      .aqm-sw-toast a {
+        pointer-events: auto;
+        cursor: pointer;
       }
     `;
 
@@ -280,9 +286,9 @@
     .aqm-switcher-modal {
       position: fixed !important;
       inset: 0 !important;
-      background: rgba(0, 0, 0, 0.65) !important;
-      backdrop-filter: blur(20px) !important;
-      -webkit-backdrop-filter: blur(20px) !important;
+      background: rgba(0, 0, 0, 0.68) !important;
+      backdrop-filter: blur(18px) !important;
+      -webkit-backdrop-filter: blur(18px) !important;
       z-index: 2147483647 !important;
       display: flex !important;
       align-items: center !important;
@@ -290,7 +296,7 @@
       opacity: 0 !important;
       pointer-events: none !important;
       visibility: hidden !important;
-      transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.22s !important;
+      transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s !important;
     }
     .aqm-switcher-modal.aqm-active {
       opacity: 1 !important;
@@ -298,81 +304,85 @@
       visibility: visible !important;
     }
     .aqm-switcher-sheet {
-      width: 630px !important;
+      width: 560px !important;
       max-width: 92vw !important;
-      height: 530px !important;
-      max-height: 85vh !important;
-      border-radius: 20px !important;
-      background: rgba(14, 18, 28, 0.9) !important;
-      backdrop-filter: blur(32px) saturate(180%) !important;
-      -webkit-backdrop-filter: blur(32px) saturate(180%) !important;
+      height: 520px !important;
+      max-height: 86vh !important;
+      border-radius: 18px !important;
+      background: rgba(13, 17, 24, 0.94) !important;
+      backdrop-filter: blur(30px) saturate(180%) !important;
+      -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
       border: 1px solid rgba(255, 255, 255, 0.08) !important;
-      box-shadow: 0 24px 60px -10px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      box-shadow: 0 20px 60px -10px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
       display: flex !important;
       flex-direction: column !important;
       overflow: hidden !important;
-      transform: scale(0.97) translateY(8px) !important;
-      transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      transform: scale(0.97) translateY(6px) !important;
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
       user-select: none !important;
       font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      letter-spacing: normal !important;
+      line-height: 1.65 !important;
       -webkit-font-smoothing: antialiased !important;
     }
     .aqm-switcher-modal.aqm-active .aqm-switcher-sheet {
       transform: scale(1) translateY(0) !important;
     }
     .aqm-sw-tab-btn {
-      padding: 6px 14px !important;
+      padding: 5px 14px !important;
       border-radius: 9999px !important;
-      font-size: 12px !important;
+      font-size: 11.5px !important;
       font-weight: 600 !important;
       cursor: pointer !important;
-      transition: all 0.16s ease !important;
+      transition: all 0.15s ease !important;
       border: 1px solid transparent !important;
       background: transparent !important;
       color: #94a3b8 !important;
       display: flex !important;
       align-items: center !important;
       gap: 6px !important;
+      letter-spacing: normal !important;
     }
     .aqm-sw-tab-btn:hover {
       color: #f8fafc !important;
     }
     .aqm-sw-tab-btn.active {
-      background: rgba(255, 255, 255, 0.1) !important;
-      border-color: rgba(255, 255, 255, 0.15) !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+      border-color: rgba(255, 255, 255, 0.12) !important;
       color: #ffffff !important;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2) !important;
     }
     .aqm-sw-card {
-      background: rgba(255, 255, 255, 0.025) !important;
+      background: rgba(255, 255, 255, 0.02) !important;
       border: 1px solid rgba(255, 255, 255, 0.06) !important;
-      border-radius: 16px !important;
-      padding: 14px 16px !important;
-      transition: all 0.18s ease !important;
+      border-radius: 14px !important;
+      padding: 13px 15px !important;
+      transition: all 0.15s ease !important;
+      letter-spacing: normal !important;
     }
     .aqm-sw-card:hover {
-      background: rgba(255, 255, 255, 0.04) !important;
-      border-color: rgba(255, 255, 255, 0.1) !important;
+      background: rgba(255, 255, 255, 0.035) !important;
+      border-color: rgba(255, 255, 255, 0.09) !important;
     }
     .aqm-sw-btn {
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
-      gap: 6px !important;
-      padding: 5px 12px !important;
+      gap: 5px !important;
+      padding: 4px 11px !important;
       border-radius: 9999px !important;
-      font-size: 11.5px !important;
+      font-size: 11px !important;
       font-weight: 600 !important;
       cursor: pointer !important;
       transition: all 0.15s ease !important;
       border: 1px solid rgba(255, 255, 255, 0.1) !important;
-      background: rgba(255, 255, 255, 0.05) !important;
+      background: rgba(255, 255, 255, 0.04) !important;
       color: #f1f5f9 !important;
+      letter-spacing: normal !important;
     }
     .aqm-sw-btn:hover {
-      background: rgba(255, 255, 255, 0.1) !important;
-      border-color: rgba(255, 255, 255, 0.2) !important;
-      transform: translateY(-1px) !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+      border-color: rgba(255, 255, 255, 0.18) !important;
     }
     .aqm-sw-btn:active {
       transform: scale(0.97) !important;
@@ -381,33 +391,39 @@
       background: #3b82f6 !important;
       border-color: #60a5fa !important;
       color: #ffffff !important;
-      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25) !important;
     }
     .aqm-sw-btn-primary:hover {
       background: #2563eb !important;
-      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.5) !important;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4) !important;
     }
     .aqm-sw-toast {
       position: absolute !important;
-      top: 16px !important;
+      top: 14px !important;
       left: 50% !important;
-      transform: translateX(-50%) translateY(-16px) !important;
+      transform: translateX(-50%) translateY(-14px) !important;
       opacity: 0 !important;
-      padding: 7px 16px !important;
+      padding: 6px 14px !important;
       border-radius: 9999px !important;
-      font-size: 11.5px !important;
+      font-size: 11px !important;
       font-weight: 600 !important;
       z-index: 10000005 !important;
-      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
       pointer-events: none !important;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
       background: rgba(15, 23, 42, 0.95) !important;
-      border: 1px solid rgba(255, 255, 255, 0.16) !important;
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
       color: #ffffff !important;
+      letter-spacing: normal !important;
     }
     .aqm-sw-toast.show {
       transform: translateX(-50%) translateY(0) !important;
       opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    .aqm-sw-toast a {
+      pointer-events: auto !important;
+      cursor: pointer !important;
     }
   `;
 
@@ -1037,24 +1053,40 @@
   let isRefreshing = false;
   let activeTaskPollingInterval = null;
 
-  let currentUsage = {
-    email: "developer@antigravity.ai",
-    session: {
-      name: "Gemini (Pro & Flash)",
-      used_pct: 28.0,
-      remaining_pct: 72.0,
-      weekly_rem: 51.0,
-      weekly_pct: 49.0,
-      resets_in: "2 hr 4 min",
-      reset_time: "02:16 PM"
-    },
-    weekly: {
-      remaining_pct: 51.0,
-      used_pct: 49.0,
-      resets_in: "2 days, 19 hours"
-    },
-    pools: []
-  };
+  let currentUsage = (() => {
+    try {
+      if (window.__antigravity_quota && window.__antigravity_quota.session) {
+        return window.__antigravity_quota;
+      }
+      const item = localStorage.getItem('antigravity:active_quota');
+      if (item) {
+        const parsed = JSON.parse(item);
+        if (parsed && parsed.session) return parsed;
+      }
+    } catch (e) {}
+    return {
+      email: (typeof window !== 'undefined' && (window.__antigravity_account || localStorage.getItem('antigravity:account_email'))) || "user@example.com",
+      name: "Pro User",
+      avatar: "",
+      tier: "Google AI Pro",
+      tier_code: "pro",
+      session: {
+        name: "Gemini (Pro & Flash)",
+        used_pct: 28.0,
+        remaining_pct: 72.0,
+        weekly_rem: 51.0,
+        weekly_pct: 49.0,
+        resets_in: "2 hr 4 min",
+        reset_time: "02:16 PM"
+      },
+      weekly: {
+        remaining_pct: 51.0,
+        used_pct: 49.0,
+        resets_in: "2 days, 19 hours"
+      },
+      pools: []
+    };
+  })();
 
   function getActiveModelName() {
     const trigger = document.querySelector('[data-testid="model-selector-trigger"]');
@@ -1384,7 +1416,10 @@
     const sessRem = Math.round(currentUsage.session?.remaining_pct ?? (100 - sessUsed));
     const sessReset = currentUsage.session?.resets_in || '2 hr 4 min';
     const sessResetTime = currentUsage.session?.reset_time || '02:16 PM';
-    const email = currentUsage.email || 'developer@antigravity.ai';
+    let email = currentUsage.email || window.__antigravity_account || localStorage.getItem('antigravity:account_email') || '';
+    if (email === 'developer@antigravity.ai' || !email) {
+      email = window.__antigravity_account || localStorage.getItem('antigravity:account_email') || 'user@example.com';
+    }
     const displayEmail = isPrivacyMode ? '••••••••••••@gmail.com' : email;
 
     const mainPct = isRem ? sessRem : sessUsed;
@@ -1601,7 +1636,7 @@
           </button>
 
           <!-- Account Switcher Trigger -->
-          <button id="aqm-account-switcher-trigger" type="button" data-font="fa" title="سوئیچ اکانت و مهاجرت پروژه‌ها (iOS Liquid Glass)" style="display:flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:9999px;background:${theme.itemBg};border:1px solid ${theme.itemBorder};color:${theme.textColor};font-size:10.5px;font-weight:600;cursor:pointer;transition:all 0.2s ease;font-family:${fontFa};user-select:none;">
+          <button id="aqm-account-switcher-trigger" type="button" data-font="fa" title="سوئیچ اکانت و مهاجرت پروژه‌ها" style="display:flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:9999px;background:${theme.itemBg};border:1px solid ${theme.itemBorder};color:${theme.textColor};font-size:10.5px;font-weight:600;cursor:pointer;transition:all 0.2s ease;font-family:${fontFa};user-select:none;">
             <span style="color:${theme.accent};">⚡️</span>
             <span style="font-size:10px;opacity:0.95;">سوئیچ</span>
           </button>
@@ -2300,6 +2335,28 @@
       migrationDone: "مهاجرت مکالمات با موفقیت انجام شد!",
       backupNotice: "پشتیبان ایمن در پوشه زیر ایجاد شد:",
       author: "توسعه داده شده با افتخار توسط Madgod-xyz",
+      tabProjects: "📁 پروژه‌ها",
+      tabTasks: "⏱ تسک‌ها",
+      projectsDesc: "انتخاب پروژه‌های مجاز برای اکانت ۲ (بمب هاب). پروژه‌های تیک‌نخورده در پنجره دوم باز نخواهند شد.",
+      tasksDesc: "مدیریت تسک‌های زمان‌بندی ویندوز. تسک‌های ایزوله‌شده توسط اکانت ۲ اجرا یا تغییر وضعیت داده نمی‌شوند.",
+      isolateTaskBtn: "🛡️ ایزوله از اکانت ۲",
+      unisolateTaskBtn: "🔓 اشتراک‌گذاری تسک",
+      taskIsolatedBadge: "🔒 فقط اکانت ۱",
+      taskSharedBadge: "🌐 مشترک دو اکانت",
+      taskEnabled: "فعال",
+      taskDisabled: "غیرفعال",
+      unlinkFromAcc2: "✕ جداسازی از اکانت ۲",
+      taskLockedBadge: "🔒 قفل شده در اکانت ۱",
+      taskLockedMsg: "این تسک متعلق به اکانت اصلی (مدگاد) است و از اکانت ۲ قابل تغییر نیست.",
+      syncNow: "🔄 سینک با اکانت ۲",
+      assignToAcc2: "مجاز در اکانت ۲ (بمب هاب)",
+      noProjectsFound: "هیچ پروژه‌ای یافت نشد.",
+      noTasksFound: "هیچ تسک زمان‌بندی مرتبطی یافت نشد.",
+      launchDual: "⚡️ پنجره ۲",
+      launchDualTitle: "اجرای همزمان در پنجره دوم آنتی‌گرویتی",
+      dualLaunching: "در حال اجرای پنجره دوم آنتی‌گرویتی...",
+      dualLaunched: "پنجره دوم با موفقیت اجرا شد!",
+      activeBadge: "فعال",
       pro: "پرو",
       ultra: "اولترا",
       free: "معمولی"
@@ -2308,7 +2365,9 @@
       appName: "Antigravity Switcher",
       appSubtitle: "Multi-Account & Project Migration Suite",
       tabAccounts: "👤 Accounts & Quota",
-      tabMigration: "⇄ Chat & Project Migration",
+      tabProjects: "📁 Projects",
+      tabTasks: "⏱ Scheduled Tasks",
+      tabMigration: "⇄ Chat Migration",
       activeAccount: "Active Account",
       saveCurrent: "💾 Save Current Account",
       savedAccounts: "Saved Accounts",
@@ -2336,6 +2395,28 @@
       migrationDone: "Migration completed successfully!",
       backupNotice: "Safe backup created at:",
       author: "Developed with precision by Madgod-xyz",
+      tabProjects: "📁 Projects",
+      tabTasks: "⏱ Scheduled Tasks",
+      projectsDesc: "Select projects accessible to Account 2. Unselected projects will not appear in Instance 2.",
+      tasksDesc: "Manage Windows scheduled tasks. Isolated tasks cannot be triggered or toggled by Account 2.",
+      isolateTaskBtn: "🛡️ Isolate from Account 2",
+      unisolateTaskBtn: "🔓 Share with Account 2",
+      taskIsolatedBadge: "🔒 Account 1 Only",
+      taskSharedBadge: "🌐 Shared",
+      taskEnabled: "Enabled",
+      taskDisabled: "Disabled",
+      unlinkFromAcc2: "✕ Unlink from Account 2",
+      taskLockedBadge: "🔒 Locked in Account 1",
+      taskLockedMsg: "This task belongs to Account 1 and is locked in Account 2.",
+      syncNow: "🔄 Sync with Account 2",
+      assignToAcc2: "Allow in Account 2",
+      noProjectsFound: "No projects found.",
+      noTasksFound: "No scheduled tasks found.",
+      launchDual: "⚡️ 2nd Window",
+      launchDualTitle: "Open concurrently in 2nd Antigravity Window",
+      dualLaunching: "Launching 2nd Antigravity instance...",
+      dualLaunched: "2nd instance started successfully!",
+      activeBadge: "ACTIVE",
       pro: "PRO",
       ultra: "ULTRA",
       free: "FREE"
@@ -2344,7 +2425,9 @@
       appName: "Antigravity 账号切换器",
       appSubtitle: "多账号管理与项目无缝迁移套件",
       tabAccounts: "👤 账号与配额",
-      tabMigration: "⇄ 对话与项目迁移",
+      tabProjects: "📁 项目管理",
+      tabTasks: "⏱ 定时任务",
+      tabMigration: "⇄ 对话迁移",
       activeAccount: "当前活跃账号",
       saveCurrent: "💾 保存当前账号",
       savedAccounts: "已保存账号",
@@ -2372,6 +2455,26 @@
       migrationDone: "迁移顺利完成！",
       backupNotice: "安全备份保存在：",
       author: "由 Madgod-xyz 精心研发",
+      projectsDesc: "选择允许在账号2中访问的项目。未勾选的项目不会在第二实例中加载。",
+      tasksDesc: "管理Windows计划任务。隔离的任务无法被账号2触发或切换。",
+      isolateTaskBtn: "🛡️ 隔离至主账号",
+      unisolateTaskBtn: "🔓 与账号2共享",
+      taskIsolatedBadge: "🔒 仅限账号1",
+      taskSharedBadge: "🌐 共享",
+      taskEnabled: "已启用",
+      taskDisabled: "已禁用",
+      unlinkFromAcc2: "✕ 从账号2解除关联",
+      taskLockedBadge: "🔒 账号1锁定",
+      taskLockedMsg: "该任务归属主账号，在账号2中已被锁定，无法修改。",
+      syncNow: "🔄 同步至账号2",
+      assignToAcc2: "在账号2中启用",
+      noProjectsFound: "未找到任何项目。",
+      noTasksFound: "未找到任何计划任务。",
+      launchDual: "⚡️ 独立多开",
+      launchDualTitle: "在第二个窗口并发运行",
+      dualLaunching: "正在启动第二个实例...",
+      dualLaunched: "第二个实例已成功启动！",
+      activeBadge: "当前活跃",
       pro: "PRO",
       ultra: "ULTRA",
       free: "FREE"
@@ -2380,6 +2483,8 @@
       appName: "Antigravity Switcher",
       appSubtitle: "Suite de Cuentas y Migración de Proyectos",
       tabAccounts: "👤 Cuentas y Cuota",
+      tabProjects: "📁 Proyectos",
+      tabTasks: "⏱ Tareas Programadas",
       tabMigration: "⇄ Migración de Chats",
       activeAccount: "Cuenta Activa",
       saveCurrent: "💾 Guardar Cuenta Actual",
@@ -2408,20 +2513,167 @@
       migrationDone: "¡Migración completada con éxito!",
       backupNotice: "Copia de seguridad guardada en:",
       author: "Desarrollado con precisión por Madgod-xyz",
+      projectsDesc: "Selecciona proyectos accesibles para Cuenta 2. Los proyectos no seleccionados no aparecerán en la Instancia 2.",
+      tasksDesc: "Administrar tareas programadas. Las tareas aisladas no pueden ser ejecutadas o modificadas por Cuenta 2.",
+      isolateTaskBtn: "🛡️ Aislar de Cuenta 2",
+      unisolateTaskBtn: "🔓 Compartir con Cuenta 2",
+      taskIsolatedBadge: "🔒 Solo Cuenta 1",
+      taskSharedBadge: "🌐 Compartido",
+      taskEnabled: "Habilitado",
+      taskDisabled: "Deshabilitado",
+      unlinkFromAcc2: "✕ Desvincular de Cuenta 2",
+      taskLockedBadge: "🔒 Bloqueada en Cuenta 1",
+      taskLockedMsg: "Esta tarea pertenece a la Cuenta 1 y está bloqueada en la Cuenta 2.",
+      syncNow: "🔄 Sincronizar con Cuenta 2",
+      assignToAcc2: "Permitir en Cuenta 2",
+      noProjectsFound: "No se encontraron proyectos.",
+      noTasksFound: "No se encontraron tareas programadas.",
+      launchDual: "⚡️ 2ª Ventana",
+      launchDualTitle: "Abrir concurrentemente en 2ª ventana de Antigravity",
+      dualLaunching: "Iniciando segunda ventana de Antigravity...",
+      dualLaunched: "¡Segunda ventana iniciada exitosamente!",
+      activeBadge: "ACTIVA",
       pro: "PRO",
       ultra: "ULTRA",
       free: "GRATIS"
     }
   };
 
+  function isInstance2Window() {
+    if (window.__antigravity_instance === 'instance_2') return true;
+    try {
+      if (localStorage.getItem('antigravity:instance_id') === 'instance_2') return true;
+      const acc = localStorage.getItem('antigravity:account_email');
+      if (acc && (acc.toLowerCase().includes('instance2') || acc === 'instance_2')) return true;
+    } catch(e) {}
+    if (window.__antigravity_accounts && (window.__antigravity_accounts.instanceId === 'instance_2' || window.__antigravity_accounts.instance_id === 'instance_2')) return true;
+    return false;
+  }
+
   let swState = {
-    activeAccount: null,
+    activeAccount: (() => {
+      try {
+        if (window.__antigravity_accounts && window.__antigravity_accounts.activeAccount) {
+          const a = window.__antigravity_accounts.activeAccount;
+          if (a && a.email && a.email !== 'developer@antigravity.ai') return a;
+        }
+        if (window.__antigravity_quota && window.__antigravity_quota.email && window.__antigravity_quota.email !== 'developer@antigravity.ai') {
+          return window.__antigravity_quota;
+        }
+        const cachedActive = localStorage.getItem('antigravity:active_quota');
+        if (cachedActive) {
+          const p = JSON.parse(cachedActive);
+          if (p && p.email && p.email !== 'developer@antigravity.ai') return p;
+        }
+      } catch(e) {}
+      if (isInstance2Window()) {
+        const inst2Email = window.__antigravity_account || localStorage.getItem('antigravity:account_email') || "account2@example.com";
+        return {
+          email: inst2Email,
+          name: "Account 2",
+          avatar: "",
+          tier: "Google AI Pro",
+          tier_code: "pro"
+        };
+      }
+      const inst1Email = window.__antigravity_account || localStorage.getItem('antigravity:account_email') || "account1@example.com";
+      return {
+        email: inst1Email,
+        name: "Account 1",
+        avatar: "",
+        tier: "Google AI Pro",
+        tier_code: "pro"
+      };
+    })(),
     savedAccounts: {},
     conversations: [],
+    projects: [],
+    tasks: [],
+    allowedConversations: (() => {
+      try {
+        if (window.__antigravity_accounts && Array.isArray(window.__antigravity_accounts.allowedConversations)) {
+          return window.__antigravity_accounts.allowedConversations;
+        }
+        const s = localStorage.getItem('antigravity:allowed_conversations');
+        if (s) return JSON.parse(s);
+      } catch(e) {}
+      return [];
+    })(),
     isLoaded: false,
     isLoading: false
   };
-  let swLang = localStorage.getItem('antigravity:switcher_lang') || 'fa';
+
+  function applyConversationIsolationFilter() {
+    if (!isInstance2Window()) {
+      document.querySelectorAll('[data-aqm-isolated="true"]').forEach(el => {
+        el.style.removeProperty('display');
+        el.removeAttribute('data-aqm-isolated');
+      });
+      return;
+    }
+
+    let allowedList = null;
+    if (window.__antigravity_accounts && Array.isArray(window.__antigravity_accounts.allowedConversations)) {
+      allowedList = window.__antigravity_accounts.allowedConversations;
+    } else if (swState && Array.isArray(swState.allowedConversations)) {
+      allowedList = swState.allowedConversations;
+    } else if (swState && swState.allowedConversations && Array.isArray(swState.allowedConversations.instance_2)) {
+      allowedList = swState.allowedConversations.instance_2;
+    }
+
+    if (!allowedList) {
+      try {
+        const stored = localStorage.getItem('antigravity:allowed_conversations');
+        if (stored) allowedList = JSON.parse(stored);
+      } catch(e) {}
+    }
+
+    if (!Array.isArray(allowedList)) return;
+    const allowedSet = new Set(allowedList);
+
+    const links = document.querySelectorAll('a[href*="/c/"]');
+    links.forEach(a => {
+      try {
+        const href = a.getAttribute('href') || a.href || '';
+        const match = href.match(/\/c\/([a-f0-9\-]{36})/i);
+        if (!match) return;
+        const cid = match[1];
+
+        let row = a;
+        while (row && row.parentElement && row.parentElement !== document.body) {
+          const p = row.parentElement;
+          if (row.classList.contains('group') || row.classList.contains('w-full') || (p.children.length > 1 && row.classList.contains('relative'))) {
+            break;
+          }
+          row = p;
+        }
+        if (!row) row = a.parentElement || a;
+
+        if (!allowedSet.has(cid)) {
+          if (row.style.display !== 'none') {
+            row.style.setProperty('display', 'none', 'important');
+            row.setAttribute('data-aqm-isolated', 'true');
+          }
+        } else {
+          if (row.getAttribute('data-aqm-isolated') === 'true') {
+            row.style.removeProperty('display');
+            row.removeAttribute('data-aqm-isolated');
+          }
+        }
+      } catch(e) {}
+    });
+  }
+
+  // Immediate synchronous restore from localStorage
+  try {
+    const cachedMan = localStorage.getItem('antigravity:accounts_manifest');
+    if (cachedMan) {
+      swState.savedAccounts = JSON.parse(cachedMan) || {};
+      swState.isLoaded = true;
+    }
+  } catch(e) {}
+
+  let swLang = localStorage.getItem('antigravity:switcher_lang') || 'en';
   let swTab = 'accounts';
   let swSelectedConvs = new Set();
   let swMode = 'copy';
@@ -2430,30 +2682,116 @@
   let swSearch = '';
   let swTargetAccount = '';
   let swIsMigrating = false;
+  let swShowAddPanel = false;
+  let swShowTokenInput = false;
+  let swOAuthUrl = null;
   let swToastTimeout = null;
 
+  function getCleanUserDisplayName(rawCandidate, rawEmail) {
+    let email = rawEmail || (swState.activeAccount && swState.activeAccount.email) || (window.__antigravity_quota && window.__antigravity_quota.email) || '';
+    if (!email && rawCandidate && rawCandidate.includes('@')) {
+      email = rawCandidate;
+    }
+    if (email && email.includes('@')) {
+      let part = email.split('@')[0];
+      if (part.includes('.')) part = part.split('.')[0];
+      if (part.includes('+')) part = part.split('+')[0];
+      part = part.trim();
+      if (part.length > 0) {
+        return part.charAt(0).toUpperCase() + part.slice(1);
+      }
+    }
+    if (rawCandidate && typeof rawCandidate === 'string' && rawCandidate.trim()) {
+      const c = rawCandidate.trim().split(' ')[0];
+      if (!c.toLowerCase().includes('user') && !c.toLowerCase().includes('ethan')) {
+        return c.charAt(0).toUpperCase() + c.slice(1);
+      }
+    }
+    return 'Developer';
+  }
+
+  function callDaemonIpc(action, payload = {}) {
+    let handled = false;
+    if (typeof window.__aqm_daemon_ipc === 'function') {
+      try {
+        window.__aqm_daemon_ipc(JSON.stringify({ action, ...payload }));
+        handled = true;
+      } catch(e) {}
+    }
+    if (!handled) {
+      try {
+        localStorage.setItem('antigravity:switcher_command', JSON.stringify({ action, ...payload, _ts: Date.now() }));
+        handled = true;
+      } catch(e) {}
+    }
+    return handled;
+  }
+
+  window.__onSwitcherStateUpdate = function(data) {
+    if (!data) return;
+    if (data.activeAccount) {
+      const prevAcc = swState.activeAccount || {};
+      const newAcc = { ...data.activeAccount };
+
+      // Never downgrade an active pro/ultra tier to free on transient network updates
+      if ((!newAcc.tier_code || newAcc.tier_code === 'free') && (prevAcc.tier_code === 'pro' || prevAcc.tier_code === 'ultra' || prevAcc.tier_code === 'enterprise')) {
+        newAcc.tier_code = prevAcc.tier_code;
+        newAcc.tier = prevAcc.tier;
+      }
+      // Never drop an avatar to empty on transient updates
+      if (!newAcc.avatar && prevAcc.avatar) {
+        newAcc.avatar = prevAcc.avatar;
+      }
+      if (!newAcc.avatar) {
+        const saved = (swState.savedAccounts && swState.savedAccounts[newAcc.email || prevAcc.email]) || {};
+        if (saved.avatar) newAcc.avatar = saved.avatar;
+      }
+
+      swState.activeAccount = newAcc;
+      window.__antigravity_quota = newAcc;
+      try {
+        localStorage.setItem('antigravity:active_quota', JSON.stringify(newAcc));
+      } catch(e) {}
+    }
+    if (data.savedAccounts) swState.savedAccounts = data.savedAccounts;
+    if (data.conversations) swState.conversations = data.conversations;
+    if (data.projects) swState.projects = data.projects;
+    if (data.tasks) swState.tasks = data.tasks;
+    if (data.allowedConversations) {
+      swState.allowedConversations = data.allowedConversations;
+      try {
+        localStorage.setItem('antigravity:allowed_conversations', JSON.stringify(data.allowedConversations));
+      } catch(e) {}
+    }
+    swState.isLoaded = true;
+    swState.isLoading = false;
+    try {
+      localStorage.setItem('antigravity:accounts_manifest', JSON.stringify(swState.savedAccounts));
+    } catch(e) {}
+    applyConversationIsolationFilter();
+    if (typeof renderBadge === 'function') renderBadge();
+    const modal = document.getElementById('antigravity-switcher-modal');
+    if (modal && modal.classList.contains('aqm-active')) {
+      renderSwitcherModal();
+    }
+  };
+
+  window.__showSwitcherToast = showSwitcherToast;
+
   function fetchSwitcherState(cb) {
+    if (callDaemonIpc('getState')) {
+      if (cb) setTimeout(cb, 120);
+      return;
+    }
     if (swState.isLoading) return;
     swState.isLoading = true;
     fetch('http://127.0.0.1:39281/api/state')
       .then(r => r.json())
       .then(data => {
-        swState.activeAccount = data.activeAccount || null;
-        swState.savedAccounts = data.savedAccounts || {};
-        swState.conversations = data.conversations || [];
-        swState.isLoaded = true;
-        swState.isLoading = false;
-        if (!swTargetAccount && Object.keys(swState.savedAccounts).length > 0) {
-          swTargetAccount = Object.keys(swState.savedAccounts)[0];
-        }
-        if (typeof renderBadge === 'function') renderBadge();
-        const modal = document.getElementById('antigravity-switcher-modal');
-        if (modal && modal.classList.contains('aqm-active')) {
-          renderSwitcherModal();
-        }
+        window.__onSwitcherStateUpdate(data);
         if (cb) cb();
       })
-      .catch(err => {
+      .catch(() => {
         swState.isLoading = false;
         if (cb) cb();
       });
@@ -2468,14 +2806,28 @@
       toast.className = 'aqm-sw-toast';
       modal.appendChild(toast);
     }
-    toast.textContent = msg;
+    if (typeof msg === 'string' && (msg.includes('<') && msg.includes('>'))) {
+      toast.innerHTML = msg;
+    } else {
+      toast.textContent = msg;
+    }
+    toast.style.pointerEvents = 'auto';
     toast.style.background = isError ? 'rgba(239, 68, 68, 0.95)' : 'rgba(16, 185, 129, 0.95)';
     toast.style.color = '#ffffff';
     toast.style.border = `1px solid ${isError ? 'rgba(239, 68, 68, 0.6)' : 'rgba(16, 185, 129, 0.6)'}`;
     toast.classList.add('show');
     if (swToastTimeout) clearTimeout(swToastTimeout);
-    swToastTimeout = setTimeout(() => { toast.classList.remove('show'); }, 3400);
+    const hasLink = typeof msg === 'string' && msg.includes('<a');
+    const delay = hasLink ? 35000 : 6000;
+    swToastTimeout = setTimeout(() => { toast.classList.remove('show'); }, delay);
   }
+
+  window.__onOAuthUrlReady = function(url) {
+    if (!url) return;
+    swOAuthUrl = url;
+    swShowAddPanel = true;
+    renderSwitcherModal();
+  };
 
   function openSwitcherModal() {
     let modal = document.getElementById('antigravity-switcher-modal');
@@ -2540,17 +2892,26 @@
     if (!modal) return;
 
     const theme = getActiveTheme();
-    const t = SW_I18N[swLang] || SW_I18N.fa;
+    const t = SW_I18N[swLang] || SW_I18N.en;
     const isFa = (swLang === 'fa');
     const dir = isFa ? 'rtl' : 'ltr';
     const fontFamily = "'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
-    const activeAcc = swState.activeAccount || {};
-    const email = activeAcc.email || (window.__antigravity_quota && window.__antigravity_quota.email) || 'madgod.cum@gmail.com';
+    const activeAcc = swState.activeAccount || currentUsage || {};
+    let email = activeAcc.email || (window.__antigravity_quota && window.__antigravity_quota.email) || (currentUsage && currentUsage.email) || window.__antigravity_account || localStorage.getItem('antigravity:account_email') || '';
+    if (isInstance2Window()) {
+      if (!email || email === 'developer@antigravity.ai') {
+        email = window.__antigravity_account || localStorage.getItem('antigravity:account_email') || 'account2@example.com';
+      }
+    } else if (!email || email === 'developer@antigravity.ai') {
+      email = window.__antigravity_account || localStorage.getItem('antigravity:account_email') || 'account1@example.com';
+    }
     let cleanDisplayName = (typeof getCleanUserDisplayName === 'function') 
-      ? getCleanUserDisplayName(activeAcc.name) 
-      : (activeAcc.name || (email ? email.split('@')[0].split('.')[0] : 'Madgod'));
-    cleanDisplayName = cleanDisplayName ? (cleanDisplayName.charAt(0).toUpperCase() + cleanDisplayName.slice(1)) : 'Madgod';
+      ? getCleanUserDisplayName(activeAcc.name, email) 
+      : ((email ? email.split('@')[0].split('.')[0] : 'User'));
+    cleanDisplayName = cleanDisplayName ? (cleanDisplayName.charAt(0).toUpperCase() + cleanDisplayName.slice(1)) : 'User';
+    if (isInstance2Window() && (!cleanDisplayName || cleanDisplayName.toLowerCase() === 'user')) cleanDisplayName = 'Account 2';
+    else if (cleanDisplayName.toLowerCase() === 'developer') cleanDisplayName = 'Account 1';
     const avatar = activeAcc.avatar || '';
     const tier = activeAcc.tier || 'Google AI Pro';
     const tierCode = (activeAcc.tier_code || 'pro').toLowerCase();
@@ -2562,151 +2923,226 @@
 
     const savedKeys = Object.keys(swState.savedAccounts || {});
     const savedCount = savedKeys.length;
+    const isCurrentSaved = !!(email && swState.savedAccounts && swState.savedAccounts[email]);
 
-    // Filter conversations for Migration tab
+    swTab = swTab || 'accounts';
     const filteredConvs = (swState.conversations || []).filter(c => {
-      if (!swSearch.trim()) return true;
+      if (!swSearch) return true;
       const q = swSearch.toLowerCase();
       return (c.title && c.title.toLowerCase().includes(q)) || (c.id && c.id.toLowerCase().includes(q));
     });
+    const projectsList = swState.projects || [];
+    const tasksList = swState.tasks || [];
 
     modal.innerHTML = `
       <div class="aqm-switcher-sheet" style="font-family:${fontFamily};direction:${dir};color:#f8fafc;">
         
-        <!-- Header (Clean Minimal) -->
-        <div style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+        <!-- Header -->
+        <div style="padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
           <div style="display:flex;align-items:center;gap:8px;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.85;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.85;">
               <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
               <circle cx="12" cy="7" r="4"/>
             </svg>
-            <span style="font-size:14px;font-weight:700;letter-spacing:-0.01em;">${t.appName || 'مدیریت حساب‌ها'}</span>
+            <span style="font-size:13.5px;font-weight:700;">${t.appName || (isFa ? 'مدیریت حساب‌ها' : 'Antigravity Switcher')}</span>
           </div>
 
-          <div style="display:flex;align-items:center;gap:10px;">
-            <!-- Minimal Language Switcher -->
-            <button id="aqm-lang-toggle-btn" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:#94a3b8;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;outline:none;">
-              ${swLang === 'fa' ? 'English' : 'فارسی'}
+          <div style="display:flex;align-items:center;gap:8px;">
+            <!-- Language Switcher (Tri-Language EN / فا / ES) -->
+            <button id="aqm-lang-toggle-btn" title="Toggle Language (EN / فا / ES)" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#94a3b8;padding:2px 8px;border-radius:9999px;font-size:10.5px;font-weight:600;cursor:pointer;transition:all 0.15s;outline:none;">
+              ${swLang === 'fa' ? 'فا' : (swLang === 'es' ? 'ES' : 'EN')}
             </button>
 
             <!-- Close Button -->
-            <button id="aqm-sw-modal-close" style="width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.15s;">✕</button>
+            <button id="aqm-sw-modal-close" style="width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all 0.15s;">✕</button>
           </div>
         </div>
 
-        <!-- Segmented Navigation Tabs -->
-        <div style="padding:8px 20px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;gap:6px;background:rgba(0,0,0,0.08);flex-shrink:0;">
+        <!-- Tab Navigation Bar (Liquid Glass Pill Tabs) -->
+        <div style="display:flex;gap:6px;padding:8px 18px;border-bottom:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.12);overflow-x:auto;flex-shrink:0;" class="aqm-custom-scroll">
           <button class="aqm-sw-tab-btn ${swTab === 'accounts' ? 'active' : ''}" id="aqm-tab-btn-accounts">
-            <span>${t.tabAccounts}</span>
+            <span>👤</span>
+            <span>${t.tabAccounts || 'Accounts'}</span>
+          </button>
+          <button class="aqm-sw-tab-btn ${swTab === 'projects' ? 'active' : ''}" id="aqm-tab-btn-projects">
+            <span>📁</span>
+            <span>${t.tabProjects || 'Projects'}</span>
+            <span style="font-size:9px;padding:0 5px;border-radius:9999px;background:rgba(255,255,255,0.08);">${projectsList.length}</span>
+          </button>
+          <button class="aqm-sw-tab-btn ${swTab === 'tasks' ? 'active' : ''}" id="aqm-tab-btn-tasks">
+            <span>⏱</span>
+            <span>${t.tabTasks || 'Tasks'}</span>
+            <span style="font-size:9px;padding:0 5px;border-radius:9999px;background:rgba(255,255,255,0.08);">${tasksList.length}</span>
           </button>
           <button class="aqm-sw-tab-btn ${swTab === 'migration' ? 'active' : ''}" id="aqm-tab-btn-migration">
-            <span>${t.tabMigration}</span>
-            <span style="font-size:10px;opacity:0.6;font-family:'JetBrains Mono',monospace;">(${(swState.conversations || []).length})</span>
+            <span>⇄</span>
+            <span>${t.tabMigration || 'Migration'}</span>
+            <span style="font-size:9px;padding:0 5px;border-radius:9999px;background:rgba(255,255,255,0.08);">${(swState.conversations || []).length}</span>
           </button>
         </div>
 
         <!-- Content Body (Scrollable) -->
-        <div class="aqm-custom-scroll" style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px;">
+        <div class="aqm-custom-scroll" style="flex:1;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:12px;">
           
           ${swTab === 'accounts' ? `
             <!-- ACTIVE ACCOUNT CARD -->
-            <div class="aqm-sw-card" style="padding:16px;">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                <div style="display:flex;align-items:center;gap:12px;">
+            <div class="aqm-sw-card" style="padding:14px 15px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <div style="display:flex;align-items:center;gap:10px;">
                   <div style="position:relative;flex-shrink:0;">
-                    ${avatar ? `<img src="${avatar}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,0.2);" />` : `
-                      <div style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#f8fafc;">${cleanDisplayName[0]}</div>
+                    ${avatar ? `<img src="${avatar}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,0.18);" />` : `
+                      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#f8fafc;">${cleanDisplayName[0]}</div>
                     `}
-                    <div style="position:absolute;bottom:0;right:0;width:9px;height:9px;border-radius:50%;background:#10b981;border:1.5px solid #0f172a;"></div>
+                    <div style="position:absolute;bottom:0;right:0;width:8px;height:8px;border-radius:50%;background:#10b981;border:1.5px solid #0d1118;"></div>
                   </div>
                   <div>
                     <div style="display:flex;align-items:center;gap:6px;">
-                      <span style="font-size:14px;font-weight:700;">${cleanDisplayName}</span>
-                      <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:9999px;background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);text-transform:uppercase;">${tierCode.toUpperCase()}</span>
+                      <span style="font-size:13.5px;font-weight:700;">${cleanDisplayName}</span>
+                      <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:9999px;background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.25);text-transform:uppercase;">${tierCode.toUpperCase()}</span>
                     </div>
-                    <div style="font-size:11.5px;color:#94a3b8;" dir="ltr">${email}</div>
+                    <div style="font-size:11px;color:#94a3b8;font-family:'JetBrains Mono',monospace;" dir="ltr">${email}</div>
                   </div>
                 </div>
 
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <button class="aqm-sw-btn" id="aqm-sw-save-current-btn" title="ذخیره این اکانت در لیست">
-                    <span>💾</span>
-                    <span>${t.saveCurrent}</span>
-                  </button>
-                  <button class="aqm-sw-btn" id="aqm-sw-refresh-btn" title="${t.refresh}" style="padding:5px 9px;">
+                  ${isCurrentSaved ? `
+                    <span style="font-size:11px;color:#10b981;font-weight:600;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:rgba(16,185,129,0.08);border-radius:9999px;border:1px solid rgba(16,185,129,0.2);">
+                      <span>●</span>
+                      <span>${isFa ? 'ذخیره در لیست' : 'Saved'}</span>
+                    </span>
+                  ` : `
+                    <button class="aqm-sw-btn aqm-sw-btn-primary" id="aqm-sw-save-current-btn" title="${isFa ? 'ذخیره این اکانت در لیست' : 'Save Account'}">
+                      <span>💾</span>
+                      <span>${isFa ? 'ذخیره اکانت' : 'Save'}</span>
+                    </button>
+                  `}
+                  <button class="aqm-sw-btn" id="aqm-sw-refresh-btn" title="${isFa ? 'بروزرسانی' : 'Refresh'}" style="padding:4px 8px;">
                     <span class="${isRefreshing ? 'aqm-rotating' : ''}">🔄</span>
                   </button>
                 </div>
               </div>
 
-              <!-- Sleek Minimal Progress Gauge -->
-              <div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:10px 12px;border:1px solid rgba(255,255,255,0.04);">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:11px;">
-                  <span style="color:#cbd5e1;font-weight:600;">سهمیه نشست جاری</span>
-                  <span style="color:#94a3b8;font-size:10.5px;">تمدید در <b style="color:#f1f5f9;" dir="ltr">${resetsIn}</b></span>
+              <!-- Minimal Quota Bar -->
+              <div style="background:rgba(0,0,0,0.18);border-radius:10px;padding:9px 12px;border:1px solid rgba(255,255,255,0.04);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;font-size:11px;">
+                  <span style="color:#cbd5e1;font-weight:600;">${isFa ? 'سهمیه نشست جاری' : 'Session Quota'}</span>
+                  <span style="color:#94a3b8;font-size:10.5px;">${isFa ? 'تمدید در' : 'Resets in'} <b style="color:#f1f5f9;" dir="ltr">${resetsIn}</b></span>
                 </div>
-                <div style="height:4px;border-radius:9999px;background:rgba(255,255,255,0.06);overflow:hidden;margin-bottom:6px;">
+                <div style="height:4px;border-radius:9999px;background:rgba(255,255,255,0.06);overflow:hidden;margin-bottom:5px;">
                   <div style="height:100%;width:${remPct}%;background:linear-gradient(90deg, #10b981, #38bdf8);border-radius:9999px;"></div>
                 </div>
-                <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#94a3b8;font-family:'JetBrains Mono',monospace;">
-                  <span>${remPct}% باقی‌مانده</span>
-                  <span>${usedPct}% مصرف‌شده</span>
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;font-family:'JetBrains Mono',monospace;">
+                  <span>${remPct}% ${isFa ? 'باقی‌مانده' : 'remaining'}</span>
+                  <span>${usedPct}% ${isFa ? 'مصرف‌شده' : 'used'}</span>
                 </div>
               </div>
             </div>
 
             <!-- SAVED ACCOUNTS SECTION -->
             <div>
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px;">
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:12.5px;font-weight:700;color:#cbd5e1;">${t.savedAccounts}</span>
-                  <span style="font-size:10px;padding:1px 6px;border-radius:9999px;background:rgba(255,255,255,0.06);color:#94a3b8;">${savedCount}</span>
+                  <span style="font-size:12px;font-weight:700;color:#cbd5e1;">${isFa ? 'حساب‌های من' : 'Saved Accounts'}</span>
+                  <span style="font-size:10px;padding:0 6px;border-radius:9999px;background:rgba(255,255,255,0.06);color:#94a3b8;font-family:'JetBrains Mono',monospace;">${savedCount}</span>
                 </div>
 
-                <!-- Sign In to New Account inside Antigravity -->
-                <button class="aqm-sw-btn" id="aqm-sw-add-new-btn" style="font-size:11px;padding:4px 10px;border-style:dashed;">
-                  <span>＋</span>
-                  <span>ورود به حساب جدید</span>
+                <!-- Safe Add Account Button -->
+                <button class="aqm-sw-btn" id="aqm-sw-toggle-add-btn" style="font-size:11px;padding:3px 9px;">
+                  <span>${swShowAddPanel ? (isFa ? '✕ بستن' : '✕ Close') : (isFa ? '＋ افزودن حساب' : '＋ Add Account')}</span>
                 </button>
               </div>
 
+              <!-- SAFE ADD ACCOUNT DRAWER -->
+              ${swShowAddPanel ? `
+                <div class="aqm-sw-card" style="border:1px solid rgba(59,130,246,0.25);background:rgba(59,130,246,0.03);margin-bottom:10px;padding:12px 14px;">
+                  <div style="font-size:11.5px;font-weight:700;color:#93c5fd;margin-bottom:4px;">${isFa ? 'افزودن حساب جدید به آنتی‌گرویتی' : 'Add New Account'}</div>
+                  <div style="font-size:10.5px;color:#94a3b8;margin-bottom:10px;line-height:1.6;">
+                    ${isFa 
+                      ? `حساب فعال شما (<b>${cleanDisplayName}</b>) با امنیت کامل در سیستم ذخیره است و هیچ داده‌ای پاک نمی‌شود. یکی از روش‌ها را انتخاب کنید:`
+                      : `Your active account (<b>${cleanDisplayName}</b>) is safely saved. Choose an option:`}
+                  </div>
+
+                  <div style="display:flex;gap:8px;margin-bottom:8px;">
+                    <button class="aqm-sw-btn aqm-sw-btn-primary" id="aqm-sw-add-oauth-btn" style="flex:1;padding:6px 10px;font-size:11px;">
+                      <span>🔑</span>
+                      <span>${isFa ? 'ورود با جیمیل جدید (گوگل)' : 'Sign In with Google'}</span>
+                    </button>
+                    <button class="aqm-sw-btn" id="aqm-sw-toggle-manual-token-btn" style="flex:1;padding:6px 10px;font-size:11px;">
+                      <span>📋</span>
+                      <span>${isFa ? 'ورود با توکن دستی' : 'Direct Token Import'}</span>
+                    </button>
+                  </div>
+
+                  ${swShowTokenInput ? `
+                    <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);">
+                      <textarea id="aqm-sw-token-input" placeholder="${isFa ? 'متن توکن یا سشن را اینجا جای‌گذاری کنید...' : 'Paste token or JSON payload here...'}" style="width:100%;height:52px;border-radius:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:10.5px;padding:6px 8px;resize:none;font-family:'JetBrains Mono',monospace;outline:none;" dir="ltr"></textarea>
+                      <div style="display:flex;justify-content:flex-end;">
+                        <button class="aqm-sw-btn aqm-sw-btn-primary" id="aqm-sw-submit-token-btn" style="padding:4px 12px;font-size:11px;">
+                          <span>${isFa ? 'ثبت و ذخیره توکن' : 'Save Token'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ` : ''}
+
+                  ${swOAuthUrl ? `
+                    <div id="aqm-oauth-live-box" style="margin-top:10px;padding:12px;border-radius:12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);text-align:center;">
+                      <div style="font-size:12px;font-weight:700;color:#93c5fd;margin-bottom:5px;">
+                        🌐 ${isFa ? 'صفحه ورود گوگل در مرورگر باز شد' : 'Google Sign-In Opened in Chrome'}
+                      </div>
+                      <div style="font-size:10.5px;color:#cbd5e1;margin-bottom:10px;line-height:1.5;">
+                        ${isFa ? 'اگر صفحه ورود در مرورگر باز نشد، روی دکمه زیر کلیک کنید:' : 'If browser did not open automatically, click below:'}
+                      </div>
+                      <a href="${swOAuthUrl}" target="_blank" rel="noreferrer" class="aqm-sw-btn aqm-sw-btn-primary" style="display:inline-block;text-decoration:none;padding:7px 18px;font-size:11.5px;font-weight:700;border-radius:8px;">
+                        🔗 ${isFa ? 'ورود به حساب گوگل (کلیک مستقیم)' : 'Direct Google Sign-In Link'}
+                      </a>
+                    </div>
+                  ` : ''}
+                </div>
+              ` : ''}
+
+              <!-- LIST OF SAVED ACCOUNTS -->
               ${savedCount === 0 ? `
-                <div class="aqm-sw-card" style="text-align:center;padding:24px 16px;border-style:dashed;">
-                  <div style="font-size:12px;color:#94a3b8;margin-bottom:10px;">هنوز حسابی ذخیره نشده است. با کلیک بر روی «ذخیره این اکانت»، حساب فعال ذخیره می‌شود.</div>
-                  <button class="aqm-sw-btn aqm-sw-btn-primary" id="aqm-sw-save-current-empty-btn" style="padding:6px 14px;">
-                    <span>ذخیره اکانت فعلی</span>
+                <div class="aqm-sw-card" style="text-align:center;padding:20px 14px;border-style:dashed;">
+                  <div style="font-size:11.5px;color:#94a3b8;margin-bottom:8px;">${isFa ? 'هنوز حسابی ذخیره نشده است.' : 'No accounts saved yet.'}</div>
+                  <button class="aqm-sw-btn aqm-sw-btn-primary" id="aqm-sw-save-current-empty-btn" style="padding:5px 12px;">
+                    <span>${isFa ? 'ذخیره اکانت فعلی' : 'Save Current Account'}</span>
                   </button>
                 </div>
               ` : `
-                <div style="display:flex;flex-direction:column;gap:6px;max-height:210px;overflow-y:auto;" class="aqm-custom-scroll">
+                <div style="display:flex;flex-direction:column;gap:5px;max-height:200px;overflow-y:auto;" class="aqm-custom-scroll">
                   ${savedKeys.map(k => {
-                    const acc = swState.savedAccounts[k];
-                    const isCur = (acc.email && acc.email.toLowerCase() === email.toLowerCase());
-                    const accShort = (acc.name || (acc.email ? acc.email.split('@')[0].split('.')[0] : 'User'));
+                    const acc = (swState.savedAccounts && swState.savedAccounts[k]) || {};
+                    const isCur = (k === email || acc.email === email);
+                    const accEmailStr = acc.email || k;
+                    const accShort = getCleanUserDisplayName(acc.name, accEmailStr);
                     const accInitial = accShort.charAt(0).toUpperCase();
                     return `
-                      <div class="aqm-sw-card" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;${isCur ? 'border-color:rgba(56,189,248,0.3);background:rgba(56,189,248,0.03);' : ''}">
-                        <div style="display:flex;align-items:center;gap:10px;">
-                          <div style="width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">
+                      <div class="aqm-sw-card" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;${isCur ? 'border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.03);' : ''}">
+                        <div style="display:flex;align-items:center;gap:9px;">
+                          <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;">
                             ${accInitial}
                           </div>
                           <div>
                             <div style="display:flex;align-items:center;gap:6px;">
                               <span style="font-size:12px;font-weight:700;">${accShort}</span>
-                              <span style="font-size:9px;padding:1px 5px;border-radius:9999px;background:rgba(255,255,255,0.06);color:#94a3b8;text-transform:uppercase;">${acc.tier_code || 'PRO'}</span>
-                              ${isCur ? `<span style="font-size:9px;padding:1px 5px;border-radius:9999px;background:rgba(16,185,129,0.15);color:#10b981;font-weight:700;">فعال</span>` : ''}
+                              <span style="font-size:8.5px;padding:1px 5px;border-radius:9999px;background:rgba(255,255,255,0.06);color:#94a3b8;text-transform:uppercase;">${acc.tier_code || 'PRO'}</span>
                             </div>
-                            <div style="font-size:11px;color:#64748b;" dir="ltr">${acc.email || k}</div>
+                            <div style="font-size:10.5px;color:#64748b;font-family:'JetBrains Mono',monospace;" dir="ltr">${acc.email || k}</div>
                           </div>
                         </div>
 
                         <div style="display:flex;align-items:center;gap:6px;">
-                          ${!isCur ? `
-                            <button class="aqm-sw-btn aqm-sw-btn-primary" data-action="switch" data-acc="${k}" style="padding:4px 10px;font-size:11px;">
-                              <span>سوئیچ</span>
+                          ${isCur ? `
+                            <span style="font-size:10.5px;color:#10b981;font-weight:700;padding:2px 8px;">${t.activeBadge || (isFa ? 'فعال' : 'Active')}</span>
+                          ` : `
+                            <button class="aqm-sw-btn aqm-sw-btn-primary" data-action="switch" data-acc="${k}" style="padding:3px 10px;font-size:11px;">
+                              <span>${t.switchNow || (isFa ? 'سوئیچ' : 'Switch')}</span>
                             </button>
-                          ` : ''}
-                          <button class="aqm-sw-btn" data-action="delete" data-acc="${k}" title="حذف از لیست" style="padding:4px 8px;font-size:11px;color:#94a3b8;border-color:transparent;background:transparent;">
+                            <button class="aqm-sw-btn" data-action="launch-dual" data-acc="${k}" data-account="${k}" data-email="${accEmailStr}" title="${t.launchDualTitle || 'Open concurrently in 2nd Antigravity Window'}" style="padding:3px 8px;font-size:11px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;display:inline-flex;align-items:center;gap:3px;cursor:pointer;">
+                              <span>${t.launchDual || '⚡️ 2nd Window'}</span>
+                            </button>
+                          `}
+                          <button class="aqm-sw-btn" data-action="delete" data-acc="${k}" title="${t.deleteAccount || (isFa ? 'حذف از لیست' : 'Delete')}" style="padding:3px 7px;font-size:10.5px;color:#94a3b8;border-color:transparent;background:transparent;">
                             <span>✕</span>
                           </button>
                         </div>
@@ -2716,82 +3152,208 @@
                 </div>
               `}
             </div>
+          ` : swTab === 'projects' ? `
+            <!-- PROJECTS TAB -->
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="font-size:11px;color:#94a3b8;line-height:1.5;padding:0 2px;">
+                ${t.projectsDesc}
+              </div>
+              ${projectsList.length === 0 ? `
+                <div class="aqm-sw-card" style="text-align:center;padding:24px 14px;border-style:dashed;">
+                  <div style="font-size:11.5px;color:#94a3b8;">${t.noProjectsFound}</div>
+                </div>
+              ` : `
+                <div style="display:flex;flex-direction:column;gap:7px;max-height:360px;overflow-y:auto;" class="aqm-custom-scroll">
+                  ${projectsList.map(p => {
+                    const assigned = p.assigned_accounts || ['instance_1'];
+                    const isAcc2 = assigned.includes('instance_2') || (email && assigned.includes(email));
+                    return `
+                      <div class="aqm-sw-card" style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                        <div style="flex:1;min-width:0;">
+                          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+                            <span style="font-size:12.5px;font-weight:700;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name || p.id}</span>
+                            <span style="font-size:9px;padding:1px 6px;border-radius:9999px;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);">${isFa ? 'اکانت ۱' : 'Account 1'}</span>
+                            ${isAcc2 ? `
+                              <span style="font-size:9px;padding:1px 6px;border-radius:9999px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);">${isFa ? 'اکانت ۲' : 'Account 2'}</span>
+                            ` : `
+                              <span style="font-size:9px;padding:1px 6px;border-radius:9999px;background:rgba(255,255,255,0.06);color:#94a3b8;">${isFa ? 'فقط اکانت ۱' : 'Account 1 Only'}</span>
+                            `}
+                          </div>
+                          <div style="font-size:10px;color:#64748b;font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" dir="ltr" title="${p.path || ''}">
+                            ${p.path || p.id}
+                          </div>
+                          <div style="font-size:10px;color:#94a3b8;margin-top:3px;">
+                            💬 ${(p.conversations || []).length || p.conversation_count || 0} ${isFa ? 'مکالمه' : 'chats'}
+                          </div>
+                        </div>
+
+                        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                          <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:#cbd5e1;cursor:pointer;background:rgba(255,255,255,0.04);padding:4px 9px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);">
+                            <input type="checkbox" class="aqm-proj-toggle-cb" data-pid="${p.id}" ${isAcc2 ? 'checked' : ''} style="width:14px;height:14px;accent-color:#10b981;cursor:pointer;" />
+                            <span>${t.assignToAcc2}</span>
+                          </label>
+                          <button class="aqm-sw-btn aqm-proj-sync-btn" data-pid="${p.id}" title="${t.syncNow}" style="padding:4px 9px;font-size:11px;">
+                            <span>🔄</span>
+                            <span>${isFa ? 'سینک' : 'Sync'}</span>
+                          </button>
+                          <button class="aqm-sw-btn aqm-proj-unlink-btn" data-pid="${p.id}" title="${t.unlinkFromAcc2}" style="padding:4px 9px;font-size:11px;color:#f87171;border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);">
+                            <span>✕</span>
+                            <span>${isFa ? 'جداسازی' : (swLang === 'es' ? 'Desvincular' : 'Unlink')}</span>
+                          </button>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              `}
+            </div>
+          ` : swTab === 'tasks' ? `
+            <!-- TASKS TAB -->
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="font-size:11px;color:#94a3b8;line-height:1.5;padding:0 2px;">
+                ${t.tasksDesc}
+              </div>
+              ${tasksList.length === 0 ? `
+                <div class="aqm-sw-card" style="text-align:center;padding:24px 14px;border-style:dashed;">
+                  <div style="font-size:11.5px;color:#94a3b8;">${t.noTasksFound}</div>
+                </div>
+              ` : `
+                <div style="display:flex;flex-direction:column;gap:7px;max-height:360px;overflow-y:auto;" class="aqm-custom-scroll">
+                  ${tasksList.map(task => {
+                    const isIso = !!task.isolated_from_account2;
+                    const isEn = !!task.enabled;
+                    const owner = (task.owner_account || '').toLowerCase();
+                    const isOwnerAcc1 = !owner || owner === 'instance_1' || !owner.includes('instance_2');
+                    const isLockedInInst2 = isInstance2Window() && isIso && isOwnerAcc1;
+                    return `
+                      <div class="aqm-sw-card" style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;${isLockedInInst2 ? 'border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.03);' : (isIso ? 'border-color:rgba(251,191,36,0.25);background:rgba(251,191,36,0.02);' : '')}">
+                        <div style="flex:1;min-width:0;">
+                          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+                            <span style="font-size:12.5px;font-weight:700;color:#f8fafc;">${task.task_name}</span>
+                            ${isEn ? `
+                              <span style="font-size:9px;padding:1px 6px;border-radius:9999px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);">● ${t.taskEnabled}</span>
+                            ` : `
+                              <span style="font-size:9px;padding:1px 6px;border-radius:9999px;background:rgba(255,255,255,0.06);color:#94a3b8;">○ ${t.taskDisabled}</span>
+                            `}
+                            ${isLockedInInst2 ? `
+                              <span style="font-size:9px;padding:1px 6px;border-radius:9999px;background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);">${t.taskLockedBadge || '🔒 قفل شده در اکانت ۱'}</span>
+                            ` : isIso ? `
+                              <span style="font-size:9px;padding:1px 6px;border-radius:9999px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);">${t.taskIsolatedBadge}</span>
+                            ` : `
+                              <span style="font-size:9px;padding:1px 6px;border-radius:9999px;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);">${t.taskSharedBadge}</span>
+                            `}
+                          </div>
+                          <div style="font-size:10.5px;color:#94a3b8;margin-bottom:2px;">
+                            ⏱ ${task.schedule || task.trigger || (isFa ? 'زمان‌بندی روزانه' : 'Daily Schedule')}
+                          </div>
+                          <div style="font-size:10px;color:#64748b;font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" dir="ltr" title="${task.command || task.action || ''}">
+                            ${task.command || task.action || task.description || ''}
+                          </div>
+                        </div>
+
+                        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                          <button class="aqm-sw-btn aqm-task-toggle-btn" 
+                            data-task="${task.task_name}" 
+                            data-enabled="${isEn}" 
+                            data-locked="${isLockedInInst2}" 
+                            ${isLockedInInst2 ? 'disabled' : ''} 
+                            title="${isLockedInInst2 ? t.taskLockedMsg : (isEn ? (isFa ? 'غیرفعال‌سازی تسک' : 'Disable Task') : (isFa ? 'فعال‌سازی تسک' : 'Enable Task'))}" 
+                            style="padding:4px 9px;font-size:11px;${isLockedInInst2 ? 'opacity:0.4;cursor:not-allowed;' : ''}">
+                            <span>${isEn ? '⏸' : '▶'}</span>
+                            <span>${isEn ? (isFa ? 'غیرفعال‌سازی' : 'Disable') : (isFa ? 'فعال‌سازی' : 'Enable')}</span>
+                          </button>
+                          <button class="aqm-sw-btn ${isIso ? '' : 'aqm-sw-btn-primary'} aqm-task-isolate-btn" 
+                            data-task="${task.task_name}" 
+                            data-isolated="${isIso}" 
+                            data-locked="${isLockedInInst2}" 
+                            ${isLockedInInst2 ? 'disabled' : ''} 
+                            title="${isLockedInInst2 ? t.taskLockedMsg : (isIso ? t.unisolateTaskBtn : t.isolateTaskBtn)}" 
+                            style="padding:4px 10px;font-size:11px;${isLockedInInst2 ? 'opacity:0.4;cursor:not-allowed;' : ''}">
+                            <span>${isIso ? t.unisolateTaskBtn : t.isolateTaskBtn}</span>
+                          </button>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              `}
+            </div>
           ` : `
-            <!-- MIGRATION TAB (Clean Minimal) -->
-            <div style="display:flex;flex-direction:column;gap:12px;">
-              <!-- Minimal Settings Grid -->
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <!-- MIGRATION TAB -->
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <!-- Target Account & Transfer Mode Grid -->
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                 
                 <!-- Target Account -->
-                <div class="aqm-sw-card" style="padding:10px 12px;">
-                  <label style="font-size:11px;font-weight:700;margin-bottom:6px;display:block;color:#94a3b8;">${t.targetAccount}</label>
-                  <select id="aqm-sw-target-select" style="width:100%;padding:6px 10px;border-radius:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:11.5px;outline:none;" dir="ltr">
+                <div class="aqm-sw-card" style="padding:9px 11px;">
+                  <label style="font-size:10.5px;font-weight:700;margin-bottom:4px;display:block;color:#94a3b8;">${isFa ? 'اکانت مقصد:' : 'Target Account:'}</label>
+                  <select id="aqm-sw-target-select" style="width:100%;padding:5px 8px;border-radius:7px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);color:#fff;font-size:11px;outline:none;" dir="ltr">
                     ${savedKeys.length > 0 ? savedKeys.map(k => `
                       <option value="${k}" ${k === swTargetAccount ? 'selected' : ''}>${swState.savedAccounts[k].email || k}</option>
                     `).join('') : `
-                      <option value="">ابتدا یک اکانت مقصد ذخیره کنید</option>
+                      <option value="">${isFa ? 'ابتدا یک اکانت مقصد ذخیره کنید' : 'No target accounts'}</option>
                     `}
                   </select>
                 </div>
 
                 <!-- Transfer Mode -->
-                <div class="aqm-sw-card" style="padding:10px 12px;">
-                  <label style="font-size:11px;font-weight:700;margin-bottom:6px;display:block;color:#94a3b8;">${t.transferMode}</label>
+                <div class="aqm-sw-card" style="padding:9px 11px;">
+                  <label style="font-size:10.5px;font-weight:700;margin-bottom:4px;display:block;color:#94a3b8;">${isFa ? 'روش انتقال:' : 'Mode:'}</label>
                   <div style="display:flex;gap:4px;">
-                    <button class="aqm-sw-btn ${swMode === 'copy' ? 'aqm-sw-btn-primary' : ''}" id="aqm-sw-mode-copy" style="flex:1;padding:5px 6px;font-size:11px;">
-                      <span>کپی ایمن</span>
+                    <button class="aqm-sw-btn ${swMode === 'copy' ? 'aqm-sw-btn-primary' : ''}" id="aqm-sw-mode-copy" style="flex:1;padding:4px;font-size:10.5px;">
+                      <span>${isFa ? 'کپی ایمن' : 'Copy'}</span>
                     </button>
-                    <button class="aqm-sw-btn ${swMode === 'move' ? 'aqm-sw-btn-primary' : ''}" id="aqm-sw-mode-move" style="flex:1;padding:5px 6px;font-size:11px;">
-                      <span>برش و انتقال</span>
+                    <button class="aqm-sw-btn ${swMode === 'move' ? 'aqm-sw-btn-primary' : ''}" id="aqm-sw-mode-move" style="flex:1;padding:4px;font-size:10.5px;">
+                      <span>${isFa ? 'برش و انتقال' : 'Move'}</span>
                     </button>
                   </div>
                 </div>
 
                 <!-- Structure Mode -->
-                <div class="aqm-sw-card" style="padding:10px 12px;">
-                  <label style="font-size:11px;font-weight:700;margin-bottom:6px;display:block;color:#94a3b8;">${t.structureMode}</label>
+                <div class="aqm-sw-card" style="padding:9px 11px;">
+                  <label style="font-size:10.5px;font-weight:700;margin-bottom:4px;display:block;color:#94a3b8;">${isFa ? 'ساختار مقصد:' : 'Structure:'}</label>
                   <div style="display:flex;gap:4px;">
-                    <button class="aqm-sw-btn ${swStructure === 'separate' ? 'aqm-sw-btn-primary' : ''}" id="aqm-sw-struct-sep" style="flex:1;padding:5px 6px;font-size:11px;">
-                      <span>مجزا</span>
+                    <button class="aqm-sw-btn ${swStructure === 'separate' ? 'aqm-sw-btn-primary' : ''}" id="aqm-sw-struct-sep" style="flex:1;padding:4px;font-size:10.5px;">
+                      <span>${isFa ? 'مجزا' : 'Separate'}</span>
                     </button>
-                    <button class="aqm-sw-btn ${swStructure === 'merge' ? 'aqm-sw-btn-primary' : ''}" id="aqm-sw-struct-merge" style="flex:1;padding:5px 6px;font-size:11px;">
-                      <span>ادغام</span>
+                    <button class="aqm-sw-btn ${swStructure === 'merge' ? 'aqm-sw-btn-primary' : ''}" id="aqm-sw-struct-merge" style="flex:1;padding:4px;font-size:10.5px;">
+                      <span>${isFa ? 'ادغام' : 'Merge'}</span>
                     </button>
                   </div>
                 </div>
 
                 <!-- Dual Sync Toggle -->
-                <div class="aqm-sw-card" style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between;">
+                <div class="aqm-sw-card" style="padding:9px 11px;display:flex;align-items:center;justify-content:space-between;">
                   <div>
-                    <div style="font-size:11.5px;font-weight:700;">سینک دوطرفه</div>
-                    <div style="font-size:10px;color:#64748b;">همگام‌سازی خودکار تغییرات</div>
+                    <div style="font-size:11px;font-weight:700;">${isFa ? 'سینک دوطرفه' : 'Dual-Sync'}</div>
+                    <div style="font-size:9.5px;color:#64748b;">${isFa ? 'همگام‌سازی تغییرات' : 'Sync updates'}</div>
                   </div>
-                  <input type="checkbox" id="aqm-sw-dual-sync" ${swDualSync ? 'checked' : ''} style="width:16px;height:16px;accent-color:#3b82f6;cursor:pointer;" />
+                  <input type="checkbox" id="aqm-sw-dual-sync" ${swDualSync ? 'checked' : ''} style="width:15px;height:15px;accent-color:#3b82f6;cursor:pointer;" />
                 </div>
 
               </div>
 
               <!-- Conversation Selector -->
-              <div class="aqm-sw-card" style="padding:12px;">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;">
-                  <input type="text" id="aqm-sw-search-input" value="${swSearch}" placeholder="جستجو در میان ${(swState.conversations || []).length} مکالمه..." style="flex:1;padding:6px 10px;border-radius:8px;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);color:#fff;font-size:11.5px;outline:none;" />
-                  <button class="aqm-sw-btn" id="aqm-sw-select-all-btn" style="padding:5px 10px;font-size:11px;">
-                    ${swSelectedConvs.size === filteredConvs.length && filteredConvs.length > 0 ? 'عدم انتخاب همه' : 'انتخاب همه'} (${swSelectedConvs.size})
+              <div class="aqm-sw-card" style="padding:10px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;">
+                  <input type="text" id="aqm-sw-search-input" value="${swSearch}" placeholder="${isFa ? `جستجو در میان ${(swState.conversations || []).length} مکالمه...` : 'Search conversations...'}" style="flex:1;padding:5px 8px;border-radius:7px;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);color:#fff;font-size:11px;outline:none;" />
+                  <button class="aqm-sw-btn" id="aqm-sw-select-all-btn" style="padding:4px 8px;font-size:10.5px;">
+                    ${swSelectedConvs.size === filteredConvs.length && filteredConvs.length > 0 ? (isFa ? 'عدم انتخاب همه' : 'Deselect All') : (isFa ? 'انتخاب همه' : 'Select All')} (${swSelectedConvs.size})
                   </button>
                 </div>
 
-                <div class="aqm-custom-scroll" style="max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">
+                <div class="aqm-custom-scroll" style="max-height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;">
                   ${filteredConvs.length === 0 ? `
-                    <div style="text-align:center;padding:16px;color:#64748b;font-size:11.5px;">هیچ مکالمه‌ای یافت نشد.</div>
+                    <div style="text-align:center;padding:12px;color:#64748b;font-size:11px;">${isFa ? 'هیچ مکالمه‌ای یافت نشد.' : 'No conversations found.'}</div>
                   ` : filteredConvs.map(c => {
                     const isChecked = swSelectedConvs.has(c.id);
                     return `
-                      <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:${isChecked ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.015)'};border:1px solid ${isChecked ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.04)'};cursor:pointer;transition:all 0.12s;">
-                        <input type="checkbox" data-cid="${c.id}" class="aqm-conv-checkbox" ${isChecked ? 'checked' : ''} style="width:14px;height:14px;accent-color:#3b82f6;cursor:pointer;" />
+                      <label style="display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:7px;background:${isChecked ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.015)'};border:1px solid ${isChecked ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.04)'};cursor:pointer;transition:all 0.12s;">
+                        <input type="checkbox" data-cid="${c.id}" class="aqm-conv-checkbox" ${isChecked ? 'checked' : ''} style="width:13px;height:13px;accent-color:#3b82f6;cursor:pointer;" />
                         <div style="flex:1;overflow:hidden;">
-                          <div style="font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.title || c.id}</div>
+                          <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.title || c.id}</div>
                         </div>
-                        <span style="font-size:9.5px;color:#64748b;font-family:'JetBrains Mono',monospace;">${(c.updated_at || '').split(' ')[0] || ''}</span>
+                        <span style="font-size:9px;color:#64748b;font-family:'JetBrains Mono',monospace;">${(c.updated_at || '').split(' ')[0] || ''}</span>
                       </label>
                     `;
                   }).join('')}
@@ -2799,8 +3361,8 @@
               </div>
 
               <!-- Start Migration Button -->
-              <button class="aqm-sw-btn aqm-sw-btn-primary" id="aqm-sw-start-migration-btn" style="padding:10px;font-size:12px;border-radius:10px;" ${swIsMigrating ? 'disabled' : ''}>
-                <span>${swIsMigrating ? 'در حال انتقال پروژه‌ها...' : `انتقال ${swSelectedConvs.size} مکالمه به اکانت مقصد`}</span>
+              <button class="aqm-sw-btn aqm-sw-btn-primary" id="aqm-sw-start-migration-btn" style="padding:8px;font-size:11.5px;border-radius:9px;" ${swIsMigrating ? 'disabled' : ''}>
+                <span>${swIsMigrating ? (isFa ? 'در حال انتقال...' : 'Migrating...') : (isFa ? `انتقال ${swSelectedConvs.size} مکالمه به اکانت مقصد` : `Migrate ${swSelectedConvs.size} Chats`)}</span>
               </button>
             </div>
           `}
@@ -2817,7 +3379,9 @@
     const langBtn = modal.querySelector('#aqm-lang-toggle-btn');
     if (langBtn) {
       langBtn.onclick = () => {
-        swLang = (swLang === 'fa' ? 'en' : 'fa');
+        if (swLang === 'en') swLang = 'fa';
+        else if (swLang === 'fa') swLang = 'es';
+        else swLang = 'en';
         try { localStorage.setItem('antigravity:switcher_lang', swLang); } catch(e){}
         renderSwitcherModal();
       };
@@ -2825,6 +3389,10 @@
 
     const tabAcc = modal.querySelector('#aqm-tab-btn-accounts');
     if (tabAcc) tabAcc.onclick = () => { swTab = 'accounts'; renderSwitcherModal(); };
+    const tabProj = modal.querySelector('#aqm-tab-btn-projects');
+    if (tabProj) tabProj.onclick = () => { swTab = 'projects'; renderSwitcherModal(); };
+    const tabTasks = modal.querySelector('#aqm-tab-btn-tasks');
+    if (tabTasks) tabTasks.onclick = () => { swTab = 'tasks'; renderSwitcherModal(); };
     const tabMig = modal.querySelector('#aqm-tab-btn-migration');
     if (tabMig) tabMig.onclick = () => { swTab = 'migration'; renderSwitcherModal(); };
 
@@ -2832,21 +3400,20 @@
     const saveCurBtn = modal.querySelector('#aqm-sw-save-current-btn') || modal.querySelector('#aqm-sw-save-current-empty-btn');
     if (saveCurBtn) {
       saveCurBtn.onclick = () => {
-        saveCurBtn.style.transform = 'scale(0.95)';
-        setTimeout(() => { saveCurBtn.style.transform = ''; }, 150);
-        showSwitcherToast('در حال ذخیره اکانت...');
+        showSwitcherToast(isFa ? 'در حال ذخیره اکانت...' : 'Saving account...');
+        if (callDaemonIpc('save')) return;
         fetch('http://127.0.0.1:39281/api/save', { method: 'POST' })
           .then(r => r.json())
           .then(res => {
             if (res.success) {
-              showSwitcherToast('اکانت فعلی با موفقیت ذخیره شد');
+              showSwitcherToast(isFa ? 'اکانت فعلی با موفقیت ذخیره شد' : 'Account saved successfully');
               fetchSwitcherState(() => { renderSwitcherModal(); });
             } else {
-              showSwitcherToast(res.error || 'خطا در ذخیره اکانت', true);
+              showSwitcherToast(res.error || (isFa ? 'خطا در ذخیره اکانت' : 'Error saving account'), true);
             }
           })
           .catch(() => {
-            showSwitcherToast('خطا در اتصال به سرویس لوکال', true);
+            showSwitcherToast(isFa ? 'خطا در اتصال به سرویس لوکال' : 'Connection error', true);
           });
       };
     }
@@ -2855,62 +3422,150 @@
     if (refreshBtn) {
       refreshBtn.onclick = () => {
         fetchSwitcherState(() => {
-          showSwitcherToast('سهمیه و اکانت‌ها بروزرسانی شد');
+          showSwitcherToast(isFa ? 'سهمیه و اکانت‌ها بروزرسانی شد' : 'Updated');
           renderSwitcherModal();
         });
       };
     }
 
-    // Sign in to new account inside Antigravity
-    const addNewBtn = modal.querySelector('#aqm-sw-add-new-btn');
-    if (addNewBtn) {
-      addNewBtn.onclick = () => {
-        showSwitcherToast('در حال ذخیره اکانت و آماده‌سازی برای ورود جدید...');
-        // 1. Save current account first
-        fetch('http://127.0.0.1:39281/api/save', { method: 'POST' })
-          .then(() => {
-            // 2. Clear credentials so Antigravity prompts for Google login
-            return fetch('http://127.0.0.1:39281/api/logout', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ noRestart: true })
-            });
-          })
-          .then(() => {
-            showSwitcherToast('در حال باز کردن فرم ورود به حساب گوگل...');
-            setTimeout(() => {
-              window.location.reload();
-            }, 800);
-          })
-          .catch(() => {
-            showSwitcherToast('خطا در اتصال به دیمن', true);
-          });
+    // Toggle Add Account Drawer
+    const toggleAddBtn = modal.querySelector('#aqm-sw-toggle-add-btn');
+    if (toggleAddBtn) {
+      toggleAddBtn.onclick = () => {
+        swShowAddPanel = !swShowAddPanel;
+        swShowTokenInput = false;
+        renderSwitcherModal();
       };
     }
 
-    // Switch Account action (with in-app reload!)
-    modal.querySelectorAll('[data-action="switch"]').forEach(btn => {
-      btn.onclick = () => {
-        const accKey = btn.getAttribute('data-acc');
-        showSwitcherToast('در حال جابجایی حساب...');
-        fetch('http://127.0.0.1:39281/api/switch', {
+    // Toggle Manual Token Input
+    const toggleTokenBtn = modal.querySelector('#aqm-sw-toggle-manual-token-btn');
+    if (toggleTokenBtn) {
+      toggleTokenBtn.onclick = () => {
+        swShowTokenInput = !swShowTokenInput;
+        renderSwitcherModal();
+      };
+    }
+
+    // Submit Manual Token
+    const submitTokenBtn = modal.querySelector('#aqm-sw-submit-token-btn');
+    if (submitTokenBtn) {
+      submitTokenBtn.onclick = () => {
+        const input = modal.querySelector('#aqm-sw-token-input');
+        const tokVal = input ? input.value.trim() : '';
+        if (!tokVal) {
+          showSwitcherToast(isFa ? 'لطفاً متن توکن را وارد کنید' : 'Please enter token', true);
+          return;
+        }
+        showSwitcherToast(isFa ? 'در حال اعتبارسنجی و ثبت توکن...' : 'Importing token...');
+        if (callDaemonIpc('import', { token: tokVal })) {
+          swShowAddPanel = false;
+          swShowTokenInput = false;
+          return;
+        }
+        fetch('http://127.0.0.1:39281/api/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accountKey: accKey, noRestart: true })
+          body: JSON.stringify({ token: tokVal })
         })
         .then(r => r.json())
         .then(res => {
           if (res.success) {
-            showSwitcherToast('حساب با موفقیت فعال شد. در حال بازنشانی...');
-            setTimeout(() => {
-              window.location.reload();
-            }, 600);
+            showSwitcherToast(isFa ? `اکانت ${res.email || ''} با موفقیت افزوده شد` : 'Account imported successfully');
+            swShowAddPanel = false;
+            swShowTokenInput = false;
+            fetchSwitcherState(() => { renderSwitcherModal(); });
           } else {
-            showSwitcherToast(res.error || 'خطا در جابجایی حساب', true);
+            showSwitcherToast(res.error || (isFa ? 'فرمت توکن نامعتبر است' : 'Invalid token format'), true);
           }
         })
         .catch(() => {
-          showSwitcherToast('خطا در اتصال به سرویس لوکال', true);
+          showSwitcherToast(isFa ? 'خطا در ارتباط با سرویس' : 'Service error', true);
+        });
+      };
+    }
+
+    // Safe Google OAuth Sign In (In-Browser Google OAuth)
+    const addOAuthBtn = modal.querySelector('#aqm-sw-add-oauth-btn');
+    if (addOAuthBtn) {
+      addOAuthBtn.onclick = () => {
+        showSwitcherToast(isFa ? 'در حال باز کردن مرورگر کروم برای ورود به گوگل...' : 'Opening Chrome for Google sign-in...');
+        fetch('http://127.0.0.1:39281/api/oauth_signin', { method: 'POST' })
+          .then(r => r.json())
+          .then(res => {
+            if (res && res.auth_url) {
+              swOAuthUrl = res.auth_url;
+              renderSwitcherModal();
+              try { window.open(res.auth_url, '_blank'); } catch(e) {}
+              showSwitcherToast(isFa 
+                ? 'مرورگر باز شد. اگر باز نشد، <a href="' + res.auth_url + '" target="_blank" style="color:#93c5fd;text-decoration:underline;font-weight:700;">اینجا کلیک کنید</a>'
+                : 'Browser opened. If not, <a href="' + res.auth_url + '" target="_blank">click here</a>');
+            }
+          })
+          .catch(() => {
+            callDaemonIpc('oauth_signin');
+          });
+      };
+    }
+
+    // Switch Account action
+    modal.querySelectorAll('[data-action="switch"]').forEach(btn => {
+      btn.onclick = () => {
+        const accKey = btn.getAttribute('data-acc');
+        showSwitcherToast(isFa ? 'در حال جابجایی حساب و راه‌اندازی مجدد...' : 'Switching account & restarting...');
+        if (callDaemonIpc('switch', { accountKey: accKey })) return;
+        fetch('http://127.0.0.1:39281/api/switch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accountKey: accKey })
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res.success) {
+            showSwitcherToast(isFa ? 'حساب فعال شد. در حال راه‌اندازی مجدد...' : 'Account active. Restarting...');
+            fetchSwitcherState(() => { renderSwitcherModal(); });
+          } else {
+            showSwitcherToast(res.error || (isFa ? 'خطا در جابجایی حساب' : 'Switch error'), true);
+          }
+        })
+        .catch(() => {
+          showSwitcherToast(isFa ? 'خطا در اتصال به سرویس لوکال' : 'Connection error', true);
+        });
+      };
+    });
+
+    // Launch Dual Instance (Secondary Window) action
+    modal.querySelectorAll('[data-action="launch-dual"]').forEach(btn => {
+      btn.onclick = (e) => {
+        if (e) e.stopPropagation();
+        const accKey = btn.getAttribute('data-acc') || btn.getAttribute('data-account') || btn.getAttribute('data-email') || (btn.closest && btn.closest('[data-acc]') && btn.closest('[data-acc]').getAttribute('data-acc'));
+        if (!accKey) return;
+
+        btn.disabled = true;
+        setTimeout(() => { try { btn.disabled = false; } catch(err){} }, 3000);
+
+        showSwitcherToast(t.dualLaunching || (isFa ? 'در حال اجرای پنجره دوم آنتی‌گرویتی...' : 'Launching 2nd Antigravity instance...'));
+
+        if (callDaemonIpc('launch_dual', { accountKey: accKey })) {
+          return;
+        }
+
+        // Fallback to daemon HTTP endpoint if CDP IPC is not available
+        fetch('http://127.0.0.1:39281/api/launch_dual', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accountKey: accKey })
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res && res.success) {
+            showSwitcherToast(res.msg || t.dualLaunched || (isFa ? 'پنجره دوم با موفقیت اجرا شد!' : '2nd instance started successfully!'));
+          } else if (res && res.error) {
+            showSwitcherToast(res.error, true);
+          }
+        })
+        .catch(() => {
+          showSwitcherToast(isFa ? 'خطا در ارتباط با سرویس لانچر' : 'Launcher connection error', true);
         });
       };
     });
@@ -2919,7 +3574,9 @@
     modal.querySelectorAll('[data-action="delete"]').forEach(btn => {
       btn.onclick = () => {
         const accKey = btn.getAttribute('data-acc');
-        if (confirm(`آیا از حذف اکانت "${accKey}" از لیست ذخیره‌شده مطمئن هستید؟`)) {
+        const confirmMsg = isFa ? `آیا از حذف اکانت "${accKey}" از لیست مطمئن هستید؟` : `Delete account "${accKey}" from list?`;
+        if (confirm(confirmMsg)) {
+          if (callDaemonIpc('delete', { accountKey: accKey })) return;
           fetch('http://127.0.0.1:39281/api/delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2928,11 +3585,190 @@
           .then(r => r.json())
           .then(res => {
             if (res.success) {
-              showSwitcherToast('اکانت با موفقیت از لیست حذف شد');
+              showSwitcherToast(isFa ? 'اکانت از لیست حذف شد' : 'Account removed');
               fetchSwitcherState(() => { renderSwitcherModal(); });
             }
           });
         }
+      };
+    });
+
+    // Projects Tab Actions
+    modal.querySelectorAll('.aqm-proj-toggle-cb').forEach(cb => {
+      cb.onchange = () => {
+        const pid = cb.getAttribute('data-pid');
+        const en = cb.checked;
+        showSwitcherToast(isFa ? 'در حال به‌روزرسانی دسترسی پروژه...' : 'Updating project access...');
+        if (!en) {
+          if (callDaemonIpc('unlinkProject', { projectId: pid, account: 'instance_2' })) {
+            setTimeout(() => {
+              applyConversationIsolationFilter();
+              fetchSwitcherState(() => renderSwitcherModal());
+            }, 300);
+            return;
+          }
+        } else {
+          if (callDaemonIpc('assignProject', { projectId: pid, account: 'instance_2', enabled: true })) {
+            setTimeout(() => {
+              applyConversationIsolationFilter();
+              fetchSwitcherState(() => renderSwitcherModal());
+            }, 300);
+            return;
+          }
+        }
+        const endpoint = en ? '/api/project_assign' : '/api/project_unlink';
+        const payload = en ? { projectId: pid, account: 'instance_2', enabled: true } : { projectId: pid, account: 'instance_2' };
+        fetch(`http://127.0.0.1:39281${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res && res.success) {
+            showSwitcherToast(isFa ? 'پروژه با موفقیت به‌روزرسانی شد' : 'Project updated');
+            applyConversationIsolationFilter();
+            fetchSwitcherState(() => { renderSwitcherModal(); });
+          } else {
+            showSwitcherToast(res.error || 'Error', true);
+          }
+        })
+        .catch(() => {
+          showSwitcherToast(isFa ? 'خطا در ارتباط با سرور' : 'Connection error', true);
+        });
+      };
+    });
+
+    modal.querySelectorAll('.aqm-proj-sync-btn').forEach(btn => {
+      btn.onclick = () => {
+        const pid = btn.getAttribute('data-pid');
+        showSwitcherToast(isFa ? 'در حال سینک پروژه به اکانت ۲...' : 'Syncing project to Account 2...');
+        if (callDaemonIpc('syncProject', { projectId: pid, targetAccount: 'instance_2' })) {
+          setTimeout(() => {
+            applyConversationIsolationFilter();
+            fetchSwitcherState(() => renderSwitcherModal());
+          }, 500);
+          return;
+        }
+        fetch('http://127.0.0.1:39281/api/project_sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId: pid, targetAccount: 'instance_2' })
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res && res.success) {
+            showSwitcherToast(isFa ? 'پروژه با اکانت ۲ همگام‌سازی شد' : 'Project synced to Account 2');
+            applyConversationIsolationFilter();
+            fetchSwitcherState(() => { renderSwitcherModal(); });
+          } else {
+            showSwitcherToast(res.error || 'Error', true);
+          }
+        })
+        .catch(() => {
+          showSwitcherToast(isFa ? 'خطا در ارتباط با سرور' : 'Connection error', true);
+        });
+      };
+    });
+
+    modal.querySelectorAll('.aqm-proj-unlink-btn').forEach(btn => {
+      btn.onclick = () => {
+        const pid = btn.getAttribute('data-pid');
+        showSwitcherToast(isFa ? 'در حال جداسازی پروژه از اکانت ۲...' : 'Unlinking project from Account 2...');
+        if (callDaemonIpc('unlinkProject', { projectId: pid, account: 'instance_2' })) {
+          setTimeout(() => {
+            applyConversationIsolationFilter();
+            fetchSwitcherState(() => renderSwitcherModal());
+          }, 300);
+          return;
+        }
+        fetch('http://127.0.0.1:39281/api/project_unlink', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId: pid, account: (isInstance2Window() ? (window.__antigravity_account || 'instance_2') : email) })
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res && res.success) {
+            showSwitcherToast(isFa ? 'پروژه با موفقیت از اکانت ۲ جدا شد' : 'Project unlinked from Account 2');
+            applyConversationIsolationFilter();
+            fetchSwitcherState(() => { renderSwitcherModal(); });
+          } else {
+            showSwitcherToast(res.error || 'Error', true);
+          }
+        })
+        .catch(() => {
+          showSwitcherToast(isFa ? 'خطا در ارتباط با سرور' : 'Connection error', true);
+        });
+      };
+    });
+
+    // Tasks Tab Actions
+    modal.querySelectorAll('.aqm-task-toggle-btn').forEach(btn => {
+      btn.onclick = () => {
+        if (btn.getAttribute('data-locked') === 'true' || btn.hasAttribute('disabled')) {
+          showSwitcherToast(t.taskLockedMsg || (isFa ? 'این تسک متعلق به اکانت اصلی است و از اکانت ۲ قابل تغییر نیست.' : 'This task belongs to Account 1 and cannot be modified from Account 2.'), true);
+          return;
+        }
+        const tname = btn.getAttribute('data-task');
+        const curEn = btn.getAttribute('data-enabled') === 'true';
+        showSwitcherToast(isFa ? 'در حال تغییر وضعیت تسک...' : 'Toggling task state...');
+        const callerAcc = isInstance2Window() ? (window.__antigravity_account || 'instance_2') : email;
+        if (callDaemonIpc('toggleTask', { taskName: tname, enabled: !curEn, callerAccount: callerAcc })) {
+          setTimeout(() => fetchSwitcherState(() => renderSwitcherModal()), 300);
+          return;
+        }
+        fetch('http://127.0.0.1:39281/api/task_toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskName: tname, enabled: !curEn, callerAccount: callerAcc })
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res && res.success) {
+            showSwitcherToast(isFa ? 'وضعیت تسک با موفقیت تغییر کرد' : 'Task state updated');
+            fetchSwitcherState(() => { renderSwitcherModal(); });
+          } else {
+            showSwitcherToast(res.error || (isFa ? 'عدم دسترسی به تغییر وضعیت تسک' : 'Access denied'), true);
+          }
+        })
+        .catch(() => {
+          showSwitcherToast(isFa ? 'خطا در ارتباط با سرور' : 'Connection error', true);
+        });
+      };
+    });
+
+    modal.querySelectorAll('.aqm-task-isolate-btn').forEach(btn => {
+      btn.onclick = () => {
+        if (btn.getAttribute('data-locked') === 'true' || btn.hasAttribute('disabled')) {
+          showSwitcherToast(t.taskLockedMsg || (isFa ? 'تغییر وضعیت ایزولاسیون این تسک از اکانت ۲ مجاز نیست.' : 'Modifying isolation of this task from Account 2 is not permitted.'), true);
+          return;
+        }
+        const tname = btn.getAttribute('data-task');
+        const curIso = btn.getAttribute('data-isolated') === 'true';
+        showSwitcherToast(isFa ? 'در حال تغییر وضعیت ایزولاسیون تسک...' : 'Updating task isolation...');
+        const callerAcc = isInstance2Window() ? (window.__antigravity_account || 'instance_2') : email;
+        if (callDaemonIpc('isolateTask', { taskName: tname, isolate: !curIso, callerAccount: callerAcc })) {
+          setTimeout(() => fetchSwitcherState(() => renderSwitcherModal()), 300);
+          return;
+        }
+        fetch('http://127.0.0.1:39281/api/task_isolate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskName: tname, isolate: !curIso, callerAccount: callerAcc })
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res && res.success) {
+            showSwitcherToast(isFa ? 'ایزولاسیون تسک به‌روزرسانی شد' : 'Task isolation updated');
+            fetchSwitcherState(() => { renderSwitcherModal(); });
+          } else {
+            showSwitcherToast(res.error || 'Error', true);
+          }
+        })
+        .catch(() => {
+          showSwitcherToast(isFa ? 'خطا در ارتباط با سرور' : 'Connection error', true);
+        });
       };
     });
 
@@ -2955,7 +3791,11 @@
     if (mergeBtn) mergeBtn.onclick = () => { swStructure = 'merge'; renderSwitcherModal(); };
 
     const dualSyncCb = modal.querySelector('#aqm-sw-dual-sync');
-    if (dualSyncCb) dualSyncCb.onchange = (e) => { swDualSync = e.target.checked; };
+    if (dualSyncCb) {
+      dualSyncCb.onchange = (e) => {
+        swDualSync = e.target.checked;
+      };
+    }
 
     const searchInput = modal.querySelector('#aqm-sw-search-input');
     if (searchInput) {
@@ -2983,7 +3823,7 @@
     }
 
     modal.querySelectorAll('.aqm-conv-checkbox').forEach(cb => {
-      cb.onchange = () => {
+      cb.onchange = (e) => {
         const cid = cb.getAttribute('data-cid');
         if (cb.checked) swSelectedConvs.add(cid);
         else swSelectedConvs.delete(cid);
@@ -2995,24 +3835,24 @@
     if (startMigrateBtn) {
       startMigrateBtn.onclick = () => {
         if (swSelectedConvs.size === 0) {
-          showSwitcherToast('لطفاً حداقل یک مکالمه را انتخاب کنید', true);
+          showSwitcherToast(isFa ? 'حداقل یک گفتگو را برای انتقال انتخاب کنید' : 'Select at least one conversation', true);
           return;
         }
         if (!swTargetAccount) {
-          showSwitcherToast('لطفاً اکانت مقصد را انتخاب کنید', true);
+          showSwitcherToast(isFa ? 'لطفاً اکانت مقصد را انتخاب کنید' : 'Select target account', true);
           return;
         }
-
         swIsMigrating = true;
         renderSwitcherModal();
-        showSwitcherToast(t.migrating || 'در حال انتقال پروژه‌ها...');
+        showSwitcherToast(isFa ? 'در حال انتقال مکالمات...' : 'Migrating conversations...');
 
+        const activeKey = email || (activeAcc && activeAcc.email) || 'Active Account';
         fetch('http://127.0.0.1:39281/api/migrate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             conversationIds: Array.from(swSelectedConvs),
-            sourceAccount: email,
+            sourceAccount: activeKey,
             targetAccount: swTargetAccount,
             mode: swMode,
             structure: swStructure,
@@ -3023,17 +3863,17 @@
         .then(res => {
           swIsMigrating = false;
           if (res.success) {
-            showSwitcherToast(`${t.migrationDone || 'انتقال با موفقیت انجام شد'} (${res.migrated_count} مکالمه)`);
+            showSwitcherToast(isFa ? `انتقال ${res.migrated_count || swSelectedConvs.size} گفتگو با موفقیت انجام شد` : 'Migration completed!');
             swSelectedConvs.clear();
             fetchSwitcherState(() => { renderSwitcherModal(); });
           } else {
-            showSwitcherToast(res.error || 'خطا در انتقال', true);
+            showSwitcherToast(res.error || (isFa ? 'خطا در انتقال' : 'Migration error'), true);
             renderSwitcherModal();
           }
         })
         .catch(err => {
           swIsMigrating = false;
-          showSwitcherToast('ارتباط با دیمن برقرار نشد', true);
+          showSwitcherToast(isFa ? 'ارتباط با سرویس برقرار نشد' : 'Service error', true);
           renderSwitcherModal();
         });
       };
@@ -3058,8 +3898,15 @@
       badge = document.createElement('div');
       badge.id = 'antigravity-usage-badge';
       const svg = trigger.querySelector('svg');
-      if (svg) trigger.insertBefore(badge, svg);
-      else trigger.appendChild(badge);
+      if (svg && svg.parentNode) {
+        try {
+          svg.parentNode.insertBefore(badge, svg);
+        } catch (e) {
+          trigger.appendChild(badge);
+        }
+      } else {
+        trigger.appendChild(badge);
+      }
     }
     badge.style.display = 'inline-flex';
     badge.style.alignItems = 'center';
@@ -3166,61 +4013,57 @@
     accPill.style.cursor = 'pointer';
     accPill.style.userSelect = 'none';
     accPill.style.transition = 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)';
-
-    function getCleanUserDisplayName(rawCandidate) {
-      let cached = '';
-      try { cached = localStorage.getItem('antigravity:fixed_user_name') || ''; } catch (e) {}
-
-      let candidate = rawCandidate || (swState.activeAccount && swState.activeAccount.name) || '';
-      if (!candidate && swState.activeAccount && swState.activeAccount.email) {
-        candidate = swState.activeAccount.email;
-      }
-      if (!candidate && currentUsage && currentUsage.email) {
-        candidate = currentUsage.email;
-      }
-      if (!candidate && cached) {
-        return cached;
-      }
-      if (!candidate) {
-        return 'Madgod';
-      }
-
-      if (candidate.includes('@')) {
-        candidate = candidate.split('@')[0];
-      }
-      if (candidate.includes('.')) {
-        candidate = candidate.split('.')[0];
-      }
-      if (candidate.includes('+')) {
-        candidate = candidate.split('+')[0];
-      }
-
-      candidate = candidate.trim();
-      if (candidate.length > 0) {
-        candidate = candidate.charAt(0).toUpperCase() + candidate.slice(1);
-      } else {
-        candidate = 'Madgod';
-      }
-
-      try { localStorage.setItem('antigravity:fixed_user_name', candidate); } catch (e) {}
-      return candidate;
+    const accUser = swState.activeAccount || currentUsage || {};
+    let accEmail = accUser.email || (window.__antigravity_quota && window.__antigravity_quota.email) || (currentUsage && currentUsage.email) || window.__antigravity_account || localStorage.getItem('antigravity:account_email') || '';
+    if (accEmail === 'developer@antigravity.ai' || !accEmail) {
+      accEmail = window.__antigravity_account || localStorage.getItem('antigravity:account_email') || (isInstance2Window() ? 'account2@example.com' : 'account1@example.com');
+    }
+    let accName = getCleanUserDisplayName(accUser.name, accEmail);
+    if (accName.toLowerCase() === 'developer') {
+      accName = isInstance2Window() ? 'Account 2' : 'Account 1';
     }
 
-    const accUser = swState.activeAccount || {};
-    const accEmail = accUser.email || currentUsage.email || 'madgod.cum@gmail.com';
-    const accName = getCleanUserDisplayName(accUser.name);
-    const accAvatar = accUser.avatar || '';
-    const accTier = accUser.tier || 'Google AI Pro';
-    const accTierCode = (accUser.tier_code || 'pro').toLowerCase();
+    // Multi-tier avatar lookup with persistence
+    let accAvatar = accUser.avatar || '';
+    if (!accAvatar && swState.savedAccounts && swState.savedAccounts[accEmail]) {
+      accAvatar = swState.savedAccounts[accEmail].avatar || '';
+    }
+    if (!accAvatar) {
+      try {
+        accAvatar = localStorage.getItem('antigravity:avatar_' + accEmail) || '';
+      } catch(e) {}
+    }
+    if (accAvatar) {
+      try { localStorage.setItem('antigravity:avatar_' + accEmail, accAvatar); } catch(e) {}
+    }
+
+    // Tier resolution: never downgrade to free if known pro/ultra
+    let accTier = accUser.tier || 'Google AI Pro';
+    let accTierCode = (accUser.tier_code || 'pro').toLowerCase();
+    const savedAcc = (swState.savedAccounts && swState.savedAccounts[accEmail]) || {};
+    if (accTierCode === 'free') {
+      if (savedAcc.tier_code === 'pro' || savedAcc.tier_code === 'ultra' || savedAcc.tier_code === 'enterprise') {
+        accTierCode = savedAcc.tier_code;
+        accTier = savedAcc.tier || 'Google AI Pro';
+      } else {
+        accTierCode = 'pro';
+        accTier = 'Google AI Pro';
+      }
+    }
 
     const tierBadgeBg = accTierCode === 'ultra' ? 'linear-gradient(135deg, #ec4899, #8b5cf6)' : (accTierCode === 'pro' ? 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(217,119,6,0.35))' : 'rgba(148,163,184,0.15)');
     const tierBadgeColor = accTierCode === 'ultra' ? '#ffffff' : (accTierCode === 'pro' ? '#fbbf24' : '#94a3b8');
     const tierBadgeBorder = accTierCode === 'ultra' ? 'rgba(236,72,153,0.5)' : (accTierCode === 'pro' ? 'rgba(251,191,36,0.45)' : 'rgba(148,163,184,0.25)');
 
     accPill.title = `اکانت فعال: ${accName} (${accTier})\nبرای سوئیچ اکانت یا جابجایی پروژه‌ها کلیک کنید`;
+
+    // User initial for fallback instead of lightning bolt
+    const initialChar = accName ? accName.charAt(0).toUpperCase() : 'M';
+    const fallbackAvatar = `<span style="width:17px;height:17px;border-radius:50%;background:linear-gradient(135deg, #4285f4, #9b72cb);display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:800;pointer-events:none;">${initialChar}</span>`;
+
     accPill.innerHTML = `
       <span style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;animation:aqm-pulse-dot 2s infinite ease-in-out;pointer-events:none;"></span>
-      ${accAvatar ? `<img src="${accAvatar}" style="width:17px;height:17px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,0.3);pointer-events:none;" />` : `<span style="font-size:11px;pointer-events:none;">⚡️</span>`}
+      ${accAvatar ? `<img src="${accAvatar}" style="width:17px;height:17px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,0.3);pointer-events:none;" onerror="this.style.display='none'" />` : fallbackAvatar}
       <span style="letter-spacing:-0.01em;font-weight:700;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;" dir="ltr">${accName}</span>
       <span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:9999px;background:${tierBadgeBg};color:${tierBadgeColor};border:1px solid ${tierBadgeBorder};text-transform:uppercase;letter-spacing:0.02em;pointer-events:none;">${accTierCode.toUpperCase()}</span>
       <span style="font-size:8px;opacity:0.6;margin-left:1px;pointer-events:none;">▼</span>
@@ -3252,12 +4095,12 @@
   let isTaskRunning = false;
 
   function startActiveTaskPolling() {
-    if (activeTaskPollingInterval) return;
+    if (window.__aqm_task_interval) return;
     const pill = document.getElementById('antigravity-usage-pill');
     if (pill) pill.classList.add('aqm-task-active');
 
     refreshQuota();
-    activeTaskPollingInterval = setInterval(() => {
+    window.__aqm_task_interval = setInterval(() => {
       const stopBtn = document.querySelector('button[aria-label*="Stop execution"], button[aria-label*="Cancel"]');
       if (!stopBtn) {
         stopActiveTaskPolling();
@@ -3268,9 +4111,9 @@
   }
 
   function stopActiveTaskPolling() {
-    if (activeTaskPollingInterval) {
-      clearInterval(activeTaskPollingInterval);
-      activeTaskPollingInterval = null;
+    if (window.__aqm_task_interval) {
+      clearInterval(window.__aqm_task_interval);
+      window.__aqm_task_interval = null;
     }
     const pill = document.getElementById('antigravity-usage-pill');
     if (pill) pill.classList.remove('aqm-task-active');
@@ -3366,6 +4209,9 @@
 
   // Smart RTL Global API & Exports
   window.updateDir = updateDir;
+  window.openSwitcherModal = openSwitcherModal;
+  window.closeSwitcherModal = closeSwitcherModal;
+  window.renderSwitcherModal = renderSwitcherModal;
   window.setRTLActive = (active) => {
     rtlConfig.isRTL = !!active;
     saveRtlConfig();
@@ -3398,9 +4244,26 @@
   }
   ensureFontLoaded(customFontEn);
   ensureFontLoaded(customFontFa);
+  applyConversationIsolationFilter();
+  try {
+    let isoDebounce = null;
+    const isoObserver = new MutationObserver(() => {
+      if (!isInstance2Window()) return;
+      if (isoDebounce) return;
+      isoDebounce = setTimeout(() => {
+        isoDebounce = null;
+        applyConversationIsolationFilter();
+      }, 150);
+    });
+    isoObserver.observe(document.body, { childList: true, subtree: true });
+    setInterval(() => {
+      if (isInstance2Window()) applyConversationIsolationFilter();
+    }, 2000);
+  } catch(e) {}
   fetchStoredQuota().then(() => {
     renderBadge();
     refreshQuota();
+    applyConversationIsolationFilter();
   });
   renderBadge();
 })();

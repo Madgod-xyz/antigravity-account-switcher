@@ -2,7 +2,7 @@
 ## سوئیت مدیریت حساب‌ها، سهمیه و مهاجرت پروژه‌های گوگل آنتی‌گرویتی (Antigravity Account Switcher & Project Migration Suite)
 
 **تاریخ ایجاد سند:** ۱۰ سپتامبر ۲۰۲۶ (۲۰ شهریور ۱۴۰۵)  
-**مسیر ریشه پروژه:** `C:\Users\gerap\Desktop\agent-helper\gravity suitch accont`  
+**مسیر ریشه پروژه:** `%USERPROFILE%\Desktop\agent-helper\gravity suitch accont`  
 **آدرس مخزن رسمی گیت‌هاب:** `https://github.com/Madgod-xyz/antigravity-account-switcher.git`  
 **توسعه‌دهنده و مالک معنوی:** **Madgod-xyz**  
 **شاخه فعال:** `master`  
@@ -101,7 +101,7 @@ gravity suitch accont/
 
 1. مخزن محلی با مشخصات نویسنده زیر پیکربندی شده است:
    - نام نویسنده: `Madgod-xyz`
-   - ایمیل: `madgod.cum@gmail.com`
+   - ایمیل: `dev@madgod.xyz`
    - ریموت گیت‌هاب: `https://github.com/Madgod-xyz/antigravity-account-switcher.git`
 2. برای انتشار کافیست در ترمینال دستورات زیر اجرا شود:
    ```bash

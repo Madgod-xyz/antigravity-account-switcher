@@ -158,18 +158,27 @@ def parse_token_payload(token_str):
         pass
     return None, None
 
-def fetch_quota_and_tier(token_str=None):
+_QUOTA_CACHE = {}
+_QUOTA_CACHE_TIME = 0
+_CACHE_TTL = 30  # seconds
+
+def fetch_quota_and_tier(token_str=None, force_refresh=False):
     """
     Fetch comprehensive account details: email, subscription tier, model quotas, and countdowns.
     """
+    global _QUOTA_CACHE, _QUOTA_CACHE_TIME
+    now = time.time()
+    if not force_refresh and _QUOTA_CACHE and (now - _QUOTA_CACHE_TIME < _CACHE_TTL):
+        return dict(_QUOTA_CACHE)
+
     if not token_str:
         token_str = get_keychain_token()
     if not token_str:
-        return None
+        return dict(_QUOTA_CACHE) if _QUOTA_CACHE else None
 
     access_token, refresh_token = parse_token_payload(token_str)
     if not access_token:
-        return None
+        return dict(_QUOTA_CACHE) if _QUOTA_CACHE else None
 
     try:
         models_data = None
@@ -208,11 +217,66 @@ def fetch_quota_and_tier(token_str=None):
                 time.sleep(0.5)
 
         if not models_data:
-            return None
+            return dict(_QUOTA_CACHE) if _QUOTA_CACHE else None
+
+        # Decode id_token JWT early if available to extract email, name, picture
+        id_claims = {}
+        if token_str:
+            try:
+                t_json = json.loads(token_str) if token_str.startswith('{') else {}
+                id_tok = t_json.get('id_token')
+                if id_tok and '.' in id_tok:
+                    payload_part = id_tok.split('.')[1]
+                    payload_part += '=' * (-len(payload_part) % 4)
+                    id_claims = json.loads(base64.urlsafe_b64decode(payload_part).decode('utf-8'))
+            except Exception:
+                pass
+
+        # User profile
+        email = id_claims.get('email')
+        user_name = id_claims.get('name')
+        avatar_url = id_claims.get('picture')
+
+        try:
+            req_u = urllib.request.Request(
+                'https://www.googleapis.com/oauth2/v3/userinfo',
+                headers={'Authorization': f'Bearer {access_token}'}
+            )
+            with urllib.request.urlopen(req_u, timeout=3.0) as r:
+                u_info = json.loads(r.read().decode('utf-8'))
+                if u_info.get('email'): email = u_info.get('email')
+                if u_info.get('name'): user_name = u_info.get('name')
+                if u_info.get('picture'): avatar_url = u_info.get('picture')
+        except Exception:
+            pass
+
+        # Consult manifest.json for known account details (avatar, tier)
+        man_account_info = {}
+        try:
+            man_path = Path.home() / ".gemini" / "accounts" / "manifest.json"
+            if man_path.exists():
+                with open(man_path, 'r', encoding='utf-8') as mf:
+                    m_data = json.load(mf)
+                    if email and email in m_data:
+                        man_account_info = m_data[email]
+                    elif not email and refresh_token:
+                        for m_acc, m_info in m_data.items():
+                            tf = m_info.get('token_file')
+                            if tf and os.path.exists(tf):
+                                with open(tf, 'r', encoding='utf-8') as tff:
+                                    if refresh_token in tff.read():
+                                        email = m_acc
+                                        man_account_info = m_info
+                                        break
+        except Exception:
+            pass
+
+        if not avatar_url and man_account_info.get('avatar'):
+            avatar_url = man_account_info['avatar']
 
         # Fetch Plan / Tier Name
-        tier_name = "Free"
-        tier_code = "free"
+        tier_name = man_account_info.get('tier', 'Google AI Pro')
+        tier_code = man_account_info.get('tier_code', 'pro')
         try:
             req_tier = urllib.request.Request(
                 'https://daily-cloudcode-pa.googleapis.com/v1internal:loadCodeAssist',
@@ -227,35 +291,36 @@ def fetch_quota_and_tier(token_str=None):
                 tier_data = json.loads(resp.read().decode('utf-8'))
                 paid = tier_data.get('paidTier', {})
                 curr = tier_data.get('currentTier', {})
-                raw_name = paid.get('name') or curr.get('name') or "Free"
-                tier_name = raw_name.replace('Antigravity', '').strip() or "Free"
-                if 'ultra' in tier_name.lower():
-                    tier_code = 'ultra'
-                elif 'pro' in tier_name.lower():
-                    tier_code = 'pro'
-                elif 'enterprise' in tier_name.lower():
-                    tier_code = 'enterprise'
-                else:
-                    tier_code = 'free'
+                raw_name = paid.get('name') or curr.get('name') or ""
+                if raw_name:
+                    clean_name_tier = raw_name.replace('Antigravity', '').strip()
+                    if 'ultra' in clean_name_tier.lower():
+                        tier_code = 'ultra'
+                        tier_name = clean_name_tier
+                    elif 'pro' in clean_name_tier.lower():
+                        tier_code = 'pro'
+                        tier_name = clean_name_tier
+                    elif 'enterprise' in clean_name_tier.lower():
+                        tier_code = 'enterprise'
+                        tier_name = clean_name_tier
+                    elif 'free' in clean_name_tier.lower():
+                        if man_account_info.get('tier_code') not in ['pro', 'ultra', 'enterprise']:
+                            tier_code = 'free'
+                            tier_name = clean_name_tier
         except Exception:
             pass
 
-        # User profile
-        email = None
-        user_name = None
-        avatar_url = None
-        try:
-            req_u = urllib.request.Request(
-                'https://www.googleapis.com/oauth2/v3/userinfo',
-                headers={'Authorization': f'Bearer {access_token}'}
-            )
-            with urllib.request.urlopen(req_u, timeout=3.0) as r:
-                u_info = json.loads(r.read().decode('utf-8'))
-                email = u_info.get('email')
-                user_name = u_info.get('name')
-                avatar_url = u_info.get('picture')
-        except Exception:
-            pass
+        # Final verification: If tier_code is free but manifest or models indicate pro, keep pro
+        if tier_code == 'free' and man_account_info.get('tier_code') in ['pro', 'ultra', 'enterprise']:
+            tier_code = man_account_info['tier_code']
+            tier_name = man_account_info.get('tier', 'Google AI Pro')
+
+        # Compute clean short display name (strictly short Gmail username: e.g. Developer)
+        clean_name = "User"
+        if email and '@' in email:
+            clean_name = email.split('@')[0].split('.')[0].capitalize()
+        elif user_name:
+            clean_name = user_name.split()[0].capitalize()
 
         # Model parsing
         models = models_data.get('models', {})
@@ -314,17 +379,28 @@ def fetch_quota_and_tier(token_str=None):
             'reset_iso': ''
         }
 
-        return {
+        res_payload = {
             'email': email or 'Unknown',
-            'name': user_name or (email.split('@')[0] if email else 'User'),
+            'name': clean_name,
             'avatar': avatar_url or '',
             'tier': tier_name,
             'tier_code': tier_code,
             'session': primary_session,
             'pools': pools
         }
+
+        if _QUOTA_CACHE and _QUOTA_CACHE.get('email') == res_payload.get('email'):
+            if res_payload.get('tier_code') == 'free' and _QUOTA_CACHE.get('tier_code') in ['pro', 'ultra', 'enterprise']:
+                res_payload['tier_code'] = _QUOTA_CACHE['tier_code']
+                res_payload['tier'] = _QUOTA_CACHE['tier']
+            if not res_payload.get('avatar') and _QUOTA_CACHE.get('avatar'):
+                res_payload['avatar'] = _QUOTA_CACHE['avatar']
+
+        _QUOTA_CACHE = res_payload
+        _QUOTA_CACHE_TIME = now
+        return res_payload
     except Exception:
-        return None
+        return dict(_QUOTA_CACHE) if _QUOTA_CACHE else None
 
 def fetch_quota():
     """Compatibility wrapper for Antigravity Quota Monitor."""

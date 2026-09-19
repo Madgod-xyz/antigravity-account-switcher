@@ -31,3 +31,12 @@ venv/
 # Antigravity agent configuration
 GEMINI.md
 .agents/
+
+# Runtime manifests and dynamic state
+task_isolation_manifest.json
+profile_sync_manifest.json
+sync_manifest.json
+active_quota.json
+quota_history.json
+scratch*
+scratch_*.py

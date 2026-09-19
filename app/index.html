@@ -32,10 +32,9 @@
         <!-- Language Selector -->
         <div class="lang-select-wrap">
           <select id="langSelect" class="lang-select" onchange="changeLanguage(this.value)">
-            <option value="en">🇺🇸 EN</option>
+            <option value="en" selected>🇺🇸 English</option>
             <option value="fa">🇮🇷 فارسی</option>
-            <option value="zh">🇨🇳 中文</option>
-            <option value="es">🇪🇸 ES</option>
+            <option value="es">🇪🇸 Español</option>
           </select>
           <span class="lang-chevron">▾</span>
         </div>
@@ -106,6 +105,41 @@
       </div>
     </section>
 
+    <!-- Dual-Instance Concurrent Suite Card -->
+    <section class="liquid-card" style="margin-top: 18px; border: 1px solid rgba(59,130,246,0.3); background: rgba(59,130,246,0.04);">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:36px; height:36px; border-radius:10px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3); display:flex; align-items:center; justify-content:center; font-size:18px;">
+            ⚡️
+          </div>
+          <div>
+            <h3 data-i18n="dualInstanceTitle" style="font-size:14.5px; font-weight:700; margin:0; color:#93c5fd;">Dual Concurrent Antigravity Instances</h3>
+            <p data-i18n="dualInstanceDesc" style="font-size:11.5px; color:var(--text-muted); margin-top:2px; line-height:1.4;">
+              Work simultaneously on your projects with two different Google accounts side-by-side without logging out.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.06);">
+        <div style="flex:1; min-width:220px;">
+          <label data-i18n="selectSecondaryAccount" style="font-size:11.5px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:5px;">Select Account for 2nd Window:</label>
+          <select id="dualTargetAccountSelect" class="lang-select" style="width:100%; border-radius:var(--radius-sm); padding:8px 12px; font-size:12.5px;">
+            <!-- Populated from savedAccounts -->
+          </select>
+        </div>
+
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-primary" id="launchDualBtn" onclick="executeLaunchDual()" style="padding: 7px 14px; font-size: 12.5px;">
+            <span data-i18n="launchDualBtn">🚀 Launch Secondary Instance</span>
+          </button>
+          <button class="btn btn-glass" onclick="openMigrationModal()" style="padding: 7px 12px; font-size: 12.5px; border-color:rgba(147,197,253,0.3);" title="Project & Chat Migration">
+            <span data-i18n="openMigrationHubBtn">⇄ Project Migration Hub</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
     <!-- Saved Accounts Section -->
     <section>
       <div class="section-head">
@@ -146,77 +180,124 @@
 
       <div class="modal-body">
 
-        <!-- Target Account Selection -->
-        <div style="display:flex; flex-direction:column; gap:6px;">
-          <label data-i18n="targetAccount" style="font-size:13px; font-weight:700;">Target Account</label>
-          <select id="modalTargetAccountSelect" class="lang-select" style="width:100%; border-radius:var(--radius-md); padding:10px 14px;">
-            <!-- Populated dynamically -->
-          </select>
+        <!-- Navigation Tabs -->
+        <div class="modal-tab-bar">
+          <button class="modal-tab-btn active" id="modalTabProjectsBtn" onclick="switchModalTab('projects')">
+            <span data-i18n="tabProjects">📁 Projects & Workspaces</span>
+          </button>
+          <button class="modal-tab-btn" id="modalTabTasksBtn" onclick="switchModalTab('tasks')">
+            <span data-i18n="tabTasks">⏱ Scheduled Tasks & Isolation</span>
+          </button>
+          <button class="modal-tab-btn" id="modalTabConversationsBtn" onclick="switchModalTab('conversations')">
+            <span data-i18n="tabConversations">💬 Conversations & Migration</span>
+          </button>
         </div>
 
-        <!-- Transfer Mode -->
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          <label data-i18n="migrationMode" style="font-size:13px; font-weight:700;">Transfer Mode</label>
-          <div class="option-row">
-            <div class="radio-card selected" id="modeCopyCard" onclick="selectMigrationMode('copy')">
-              <span class="radio-card-title" data-i18n="modeCopy">Safe Copy (Keep in both)</span>
-              <span class="radio-card-desc" data-i18n="modeCopyDesc">Duplicates conversations and artifacts so you can continue work with new quota.</span>
-            </div>
-            <div class="radio-card" id="modeCutCard" onclick="selectMigrationMode('move')">
-              <span class="radio-card-title" data-i18n="modeCut">Cut & Move (Transfer)</span>
-              <span class="radio-card-desc" data-i18n="modeCutDesc">Moves projects completely to target account, cleaning up source.</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Destination Structure -->
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          <label data-i18n="structureMode" style="font-size:13px; font-weight:700;">Destination Layout</label>
-          <div class="option-row">
-            <div class="radio-card selected" id="structSeparateCard" onclick="selectStructureMode('separate')">
-              <span class="radio-card-title" data-i18n="structSeparate">Separate Pages & Projects</span>
-              <span class="radio-card-desc" data-i18n="structSeparateDesc">Keeps each conversation thread as an independent project.</span>
-            </div>
-            <div class="radio-card" id="structMergeCard" onclick="selectStructureMode('merge')">
-              <span class="radio-card-title" data-i18n="structMerge">Merge into Single Project</span>
-              <span class="radio-card-desc" data-i18n="structMergeDesc">Consolidates all selected conversations into a single timeline.</span>
-            </div>
+        <!-- PANE 1: PROJECTS & WORKSPACES SELECTIVE SYNC -->
+        <div id="paneProjects" class="modal-tab-pane" style="display:flex; flex-direction:column; gap:12px;">
+          <p data-i18n="projectsDesc" style="font-size:12px; color:var(--text-muted); line-height:1.5; margin:0;">
+            Selectively enable or isolate specific projects in Instance 2 without bleeding unselected code or folders.
+          </p>
+          <input type="text" id="projectSearchInput" class="lang-select" style="width:100%; border-radius:var(--radius-sm); padding:8px 12px;" placeholder="Search projects or paths..." oninput="filterProjects(this.value)" />
+          <div class="project-card-list" id="projectCardList">
+            <!-- Dynamically populated project cards -->
           </div>
         </div>
 
-        <!-- Continuous Dual-Sync Toggle -->
-        <div class="sync-toggle-card">
-          <div style="display:flex; flex-direction:column; gap:3px;">
-            <span class="radio-card-title" data-i18n="dualSyncTitle">Continuous Dual-Sync</span>
-            <span class="radio-card-desc" data-i18n="dualSyncDesc">Keep AI agent updates synchronized automatically across both accounts.</span>
+        <!-- PANE 2: SCHEDULED TASKS ISOLATION -->
+        <div id="paneTasks" class="modal-tab-pane" style="display:none; flex-direction:column; gap:12px;">
+          <p data-i18n="tasksDesc" style="font-size:12px; color:var(--text-muted); line-height:1.5; margin:0;">
+            Scheduled tasks and cron jobs in Account 1 are strictly isolated and will never trigger or execute in Account 2.
+          </p>
+          <div class="task-card-list" id="taskCardList">
+            <!-- Dynamically populated task cards -->
           </div>
-          <label class="ios-switch">
-            <input type="checkbox" id="dualSyncCheckbox">
-            <span class="ios-slider"></span>
-          </label>
         </div>
 
-        <!-- Conversation Picker -->
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <label data-i18n="selectConversations" style="font-size:13px; font-weight:700;">Select Conversations</label>
-            <div style="display:flex; gap:8px;">
-              <button class="btn-glass" onclick="toggleSelectAllConversations(true)" style="padding:4px 8px; font-size:11px;" data-i18n="selectAll">Select All</button>
-              <button class="btn-glass" onclick="toggleSelectAllConversations(false)" style="padding:4px 8px; font-size:11px;" data-i18n="deselectAll">Deselect</button>
+        <!-- PANE 3: CONVERSATIONS & TIMELINES MIGRATION -->
+        <div id="paneConversations" class="modal-tab-pane" style="display:none; flex-direction:column; gap:12px;">
+
+          <!-- Target Account Selection -->
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label data-i18n="targetAccount" style="font-size:13px; font-weight:700;">Target Account</label>
+            <select id="modalTargetAccountSelect" class="lang-select" style="width:100%; border-radius:var(--radius-md); padding:10px 14px;">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+
+          <!-- Transfer Mode -->
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <label data-i18n="migrationMode" style="font-size:13px; font-weight:700;">Transfer Mode</label>
+            <div class="option-row">
+              <div class="radio-card selected" id="modeCopyCard" onclick="selectMigrationMode('copy')">
+                <span class="radio-card-title" data-i18n="modeCopy">Safe Copy (Keep in both)</span>
+                <span class="radio-card-desc" data-i18n="modeCopyDesc">Duplicates conversations and artifacts so you can continue work with new quota.</span>
+              </div>
+              <div class="radio-card" id="modeCutCard" onclick="selectMigrationMode('move')">
+                <span class="radio-card-title" data-i18n="modeCut">Cut & Move (Transfer)</span>
+                <span class="radio-card-desc" data-i18n="modeCutDesc">Moves projects completely to target account, cleaning up source.</span>
+              </div>
             </div>
           </div>
-          <input type="text" id="convSearchInput" class="lang-select" style="width:100%; border-radius:var(--radius-sm); padding:8px 12px; margin-bottom:4px;" placeholder="Search conversations or projects..." oninput="filterConversations(this.value)" />
 
-          <div class="conv-picker" id="conversationPickerList">
-            <!-- Populated dynamically with checkboxes -->
+          <!-- Destination Structure -->
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <label data-i18n="structureMode" style="font-size:13px; font-weight:700;">Destination Layout</label>
+            <div class="option-row">
+              <div class="radio-card selected" id="structSeparateCard" onclick="selectStructureMode('separate')">
+                <span class="radio-card-title" data-i18n="structSeparate">Separate Pages & Projects</span>
+                <span class="radio-card-desc" data-i18n="structSeparateDesc">Keeps each conversation thread as an independent project.</span>
+              </div>
+              <div class="radio-card" id="structMergeCard" onclick="selectStructureMode('merge')">
+                <span class="radio-card-title" data-i18n="structMerge">Merge into Single Project</span>
+                <span class="radio-card-desc" data-i18n="structMergeDesc">Consolidates all selected conversations into a single timeline.</span>
+              </div>
+            </div>
           </div>
+
+          <!-- Continuous Dual-Sync Toggle -->
+          <div class="sync-toggle-card">
+            <div style="display:flex; flex-direction:column; gap:3px;">
+              <span class="radio-card-title" data-i18n="dualSyncTitle">Continuous Dual-Sync</span>
+              <span class="radio-card-desc" data-i18n="dualSyncDesc">Keep AI agent updates synchronized automatically across both accounts.</span>
+            </div>
+            <label class="ios-switch">
+              <input type="checkbox" id="dualSyncCheckbox">
+              <span class="ios-slider"></span>
+            </label>
+          </div>
+
+          <!-- Filter By Project -->
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label data-i18n="filterByProject" style="font-size:12px; font-weight:600; color:var(--text-muted);">Filter by Project:</label>
+            <select id="convProjectFilterSelect" class="lang-select" style="width:100%; border-radius:var(--radius-sm); padding:8px 12px;" onchange="onFilterProjectChange(this.value)">
+              <option value="" data-i18n="allProjects">All Projects</option>
+            </select>
+          </div>
+
+          <!-- Conversation Picker -->
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label data-i18n="selectConversations" style="font-size:13px; font-weight:700;">Select Conversations</label>
+              <div style="display:flex; gap:8px;">
+                <button class="btn-glass" onclick="toggleSelectAllConversations(true)" style="padding:4px 8px; font-size:11px;" data-i18n="selectAll">Select All</button>
+                <button class="btn-glass" onclick="toggleSelectAllConversations(false)" style="padding:4px 8px; font-size:11px;" data-i18n="deselectAll">Deselect</button>
+              </div>
+            </div>
+            <input type="text" id="convSearchInput" class="lang-select" style="width:100%; border-radius:var(--radius-sm); padding:8px 12px; margin-bottom:4px;" placeholder="Search conversations..." oninput="filterConversations(this.value)" />
+
+            <div class="conv-picker" id="conversationPickerList">
+              <!-- Populated dynamically with checkboxes -->
+            </div>
+          </div>
+
         </div>
 
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-glass" onclick="closeMigrationModal()" data-i18n="cancel">Cancel</button>
-        <button class="btn btn-primary" id="startMigrationBtn" onclick="executeMigration()">
+        <button class="btn btn-glass" onclick="closeMigrationModal()" data-i18n="close">Close</button>
+        <button class="btn btn-primary" id="startMigrationBtn" onclick="executeMigration()" style="display:none;">
           <span>🚀</span>
           <span data-i18n="startMigration">Start Smart Migration</span>
         </button>

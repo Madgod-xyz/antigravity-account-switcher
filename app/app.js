@@ -1,6 +1,7 @@
 /* ==========================================================================
    Antigravity Switcher & Migration Suite - Interactive Application Controller
    Author: Madgod-xyz (https://github.com/Madgod-xyz/antigravity-account-switcher)
+   Includes: Granular Project Selection, Scheduled Tasks Isolation, and Live Quota
    ========================================================================== */
 
 let currentLang = 'en';
@@ -8,13 +9,17 @@ let state = {
   activeAccount: null,
   savedAccounts: {},
   conversations: [],
+  projects: [],
+  tasks: [],
+  activeModalTab: 'projects',
   migration: {
     sourceAccount: null,
     targetAccount: null,
     mode: 'copy',
     structure: 'separate',
     dualSync: false,
-    selectedIds: new Set()
+    selectedIds: new Set(),
+    selectedProjectId: ''
   }
 };
 
@@ -30,13 +35,10 @@ function detectInitialLanguage() {
   if (saved && translations[saved]) {
     currentLang = saved;
   } else {
-    const nav = navigator.language.toLowerCase();
-    if (nav.startsWith('fa')) currentLang = 'fa';
-    else if (nav.startsWith('zh')) currentLang = 'zh';
-    else if (nav.startsWith('es')) currentLang = 'es';
-    else currentLang = 'en';
+    currentLang = 'en'; // Default English
   }
-  document.getElementById('langSelect').value = currentLang;
+  const langSelect = document.getElementById('langSelect');
+  if (langSelect) langSelect.value = currentLang;
   applyTranslations();
 }
 
@@ -46,48 +48,50 @@ function changeLanguage(lang) {
   localStorage.setItem('agy_switcher_lang', lang);
   applyTranslations();
   renderAll();
+  if (document.getElementById('migrationModal')?.classList.contains('active')) {
+    renderProjectList();
+    renderTaskList();
+    renderConversationPicker();
+  }
 }
 
 function applyTranslations() {
-  const t = translations[currentLang];
+  const tObj = translations[currentLang] || translations.en;
   document.documentElement.lang = currentLang;
-  document.documentElement.dir = t.dir;
-  document.body.style.fontFamily = t.font;
+  document.documentElement.dir = tObj.dir;
+  document.body.style.fontFamily = tObj.font;
 
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
-    if (t[key]) {
-      el.innerText = t[key];
+    if (tObj[key]) {
+      el.innerText = tObj[key];
     }
   });
 
   const searchInput = document.getElementById('convSearchInput');
-  if (searchInput && t.searchPlaceholder) {
-    searchInput.placeholder = t.searchPlaceholder;
+  if (searchInput && tObj.searchPlaceholder) {
+    searchInput.placeholder = tObj.searchPlaceholder;
   }
 }
 
 function t(key) {
-  return (translations[currentLang] && translations[currentLang][key]) || key;
+  return (translations[currentLang] && translations[currentLang][key]) || (translations.en && translations.en[key]) || key;
 }
 
 // Data Fetching & Sync
 async function initApplication() {
   try {
-    // Check if initial payload is injected by runner
     if (window.INITIAL_PAYLOAD) {
       handlePayload(window.INITIAL_PAYLOAD);
       return;
     }
 
-    // Try fetching from local bridge server if running
     const res = await fetch('/api/state').then(r => r.json()).catch(() => null);
     if (res) {
       handlePayload(res);
       return;
     }
 
-    // Fallback load mock/demo for testing in standalone browser
     loadFallbackData();
   } catch (err) {
     loadFallbackData();
@@ -98,14 +102,35 @@ function handlePayload(data) {
   state.activeAccount = data.activeAccount;
   state.savedAccounts = data.savedAccounts || {};
   state.conversations = data.conversations || [];
+  state.projects = data.projects || [];
+  state.tasks = data.tasks || [];
   renderAll();
+}
+
+function getSecondaryAccountEmail() {
+  const keys = Object.keys(state.savedAccounts || {});
+  const activeEmail = state.activeAccount ? state.activeAccount.email : null;
+  const secondary = keys.find(k => k !== activeEmail);
+  return secondary || 'secondary@example.com';
+}
+
+function getPrimaryAccountEmail() {
+  const keys = Object.keys(state.savedAccounts || {});
+  return (state.activeAccount && state.activeAccount.email) || keys[0] || 'primary@example.com';
+}
+
+function isAccount2(accountStr) {
+  if (!accountStr) return false;
+  const lower = String(accountStr).toLowerCase();
+  const secondary = getSecondaryAccountEmail().toLowerCase();
+  return lower.includes('instance2') || lower.includes('instance_2') || lower === secondary || (state.activeAccount && state.activeAccount.instanceId === 'instance_2');
 }
 
 function loadFallbackData() {
   state.activeAccount = {
-    email: "madgod.cum@gmail.com",
-    name: "Madgod",
-    avatar: "https://lh3.googleusercontent.com/a/ACg8ocKL_c03MxCossmd802Ci3aMxOH1oka7dLjgyC_xM0FnDA48xlA=s96-c",
+    email: "developer@example.com",
+    name: "Developer",
+    avatar: "https://lh3.googleusercontent.com/a/default-user=s96-c",
     tier: "Google AI Pro",
     tier_code: "pro",
     session: {
@@ -126,15 +151,69 @@ function loadFallbackData() {
   };
 
   state.savedAccounts = {
-    "madgod.cum@gmail.com": {
-      email: "madgod.cum@gmail.com",
-      label: "Madgod (Primary Dev)",
+    "developer@example.com": {
+      email: "developer@example.com",
+      label: "Developer (Primary)",
       tier: "Google AI Pro",
       tier_code: "pro",
       remaining_pct: 65.9,
       saved_at: "2026-09-10 18:00"
+    },
+    "secondary@example.com": {
+      email: "secondary@example.com",
+      label: "Collaborator (Secondary)",
+      tier: "Google AI Pro",
+      tier_code: "pro",
+      remaining_pct: 100.0,
+      saved_at: "2026-09-19 14:00"
     }
   };
+
+  state.projects = [
+    {
+      id: "38a862ea-ade2-428a-b094-ff969a0e51c1",
+      name: "gravity switch account",
+      path: "C:\\Workspace\\gravity-switch-account",
+      assigned_accounts: ["developer@example.com", "secondary@example.com"],
+      conversation_count: 7,
+      is_instance1_enabled: true,
+      is_instance2_enabled: true,
+      is_shared: true
+    },
+    {
+      id: "e167f592-94ff-4339-ab32-d7bed0159a57",
+      name: "SEO Automation Agent",
+      path: "C:\\Workspace\\seo-automation-agent",
+      assigned_accounts: ["developer@example.com"],
+      conversation_count: 5,
+      is_instance1_enabled: true,
+      is_instance2_enabled: false,
+      is_shared: false
+    }
+  ];
+
+  state.tasks = [
+    {
+      name: "DailySEOAgent",
+      owner_account: "developer@example.com",
+      status: "Ready",
+      enabled: true,
+      isolated_from_account2: true,
+      allowed_instances: ["instance_1"],
+      next_run: "20/09/2026 12:30:00",
+      description: "Daily SEO Agent Runner (12:30 PM)"
+    },
+    {
+      name: "AntigravityQuotaMonitor",
+      owner_account: "shared",
+      status: "Ready",
+      enabled: true,
+      isolated_from_account2: false,
+      allowed_instances: ["instance_1", "instance_2"],
+      next_run: "N/A",
+      description: "Real-time Multi-Instance Quota Auto-Sync Daemon"
+    }
+  ];
 
   renderAll();
 }
@@ -143,19 +222,16 @@ function loadFallbackData() {
 function callNative(action, payload = {}) {
   const req = { action, payload, timestamp: Date.now() };
 
-  // Windows WebView2 Bridge
   if (window.chrome && window.chrome.webview) {
     window.chrome.webview.postMessage(req);
     return;
   }
 
-  // WebKit / macOS Bridge
   if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeBridge) {
     window.webkit.messageHandlers.nativeBridge.postMessage(req);
     return;
   }
 
-  // Local HTTP API Fallback
   fetch('/api/' + action, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -165,10 +241,81 @@ function callNative(action, payload = {}) {
   });
 }
 
-// Render Functions
+// Main Render Dispatcher
 function renderAll() {
   renderActiveAccount();
+  renderDualInstanceControls();
   renderSavedAccounts();
+}
+
+function renderDualInstanceControls() {
+  const select = document.getElementById('dualTargetAccountSelect');
+  if (!select) return;
+  select.innerHTML = '';
+
+  const activeEmail = (state.activeAccount && state.activeAccount.email) || '';
+  const entries = Object.entries(state.savedAccounts || {});
+  const secondaries = entries.filter(([k, acc]) => (acc.email || k) !== activeEmail);
+
+  const btn = document.getElementById('launchDualBtn');
+
+  if (secondaries.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.innerText = t('noSavedAccounts');
+    select.appendChild(opt);
+    if (btn) btn.disabled = true;
+    return;
+  }
+
+  if (btn) btn.disabled = false;
+
+  secondaries.forEach(([k, acc]) => {
+    const opt = document.createElement('option');
+    opt.value = k;
+    opt.innerText = `${acc.label || acc.email || k} (${acc.tier || 'PRO'})`;
+    select.appendChild(opt);
+  });
+}
+
+async function executeLaunchDual(accountKey) {
+  let target = accountKey;
+  if (!target) {
+    const select = document.getElementById('dualTargetAccountSelect');
+    target = select ? select.value : '';
+  }
+  if (!target) {
+    alert(t('noSavedAccounts'));
+    return;
+  }
+
+  const btn = document.getElementById('launchDualBtn');
+  const originalText = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span>⏳</span> <span>${t('dualLaunching')}</span>`;
+  }
+
+  try {
+    const res = await fetch('/api/launch_dual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountKey: target })
+    }).then(r => r.json());
+
+    if (res && res.success) {
+      alert(res.msg || t('dualLaunched'));
+    } else {
+      alert((res && res.error) || 'Failed to launch secondary instance');
+    }
+  } catch (e) {
+    alert('Failed to connect to launcher service');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
+  }
 }
 
 function renderActiveAccount() {
@@ -182,7 +329,6 @@ function renderActiveAccount() {
   document.getElementById('userName').innerText = acc.name || acc.email.split('@')[0];
   document.getElementById('userEmail').innerText = acc.email;
 
-  // Avatar
   const avatarImg = document.getElementById('userAvatar');
   const avatarPlaceholder = document.getElementById('userAvatarPlaceholder');
   if (acc.avatar) {
@@ -195,13 +341,11 @@ function renderActiveAccount() {
     avatarPlaceholder.innerText = (acc.email[0] || 'A').toUpperCase();
   }
 
-  // Tier Badge
   const tierEl = document.getElementById('tierBadge');
   const tierCode = acc.tier_code || 'pro';
   tierEl.className = `tier-badge ${tierCode}`;
   tierEl.innerText = acc.tier || t('tierPro');
 
-  // Quota Box
   const sess = acc.session || {};
   const used = sess.used_pct || 0;
   const rem = sess.remaining_pct !== undefined ? sess.remaining_pct : (100 - used);
@@ -220,7 +364,6 @@ function renderActiveAccount() {
     : t('noActiveLimit');
   document.getElementById('quotaCountdown').innerText = countdownText;
 
-  // Models Grid
   const grid = document.getElementById('modelsGrid');
   grid.innerHTML = '';
   (acc.pools || []).forEach(p => {
@@ -288,11 +431,10 @@ function renderSavedAccounts() {
             <span>⚡️</span>
             <span>${t('switchNow')}</span>
           </button>
+          <button class="btn btn-glass" style="padding: 6px 10px; font-size: 12px; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); color:#93c5fd;" title="${t('launchDualTitle')}" onclick="executeLaunchDual('${key}')">
+            <span>⚡️ 2nd</span>
+          </button>
         ` : ''}
-
-        <button class="btn btn-glass" style="padding: 6px 10px; font-size: 12px;" title="${t('migrateTitle')}" onclick="openMigrationModal('${key}')">
-          <span>🔄</span>
-        </button>
 
         <button class="btn btn-ghost-danger" style="padding: 6px 8px; font-size: 12px;" title="Delete" onclick="deleteAccount('${key}')">
           <span>🗑</span>
@@ -304,7 +446,6 @@ function renderSavedAccounts() {
   });
 }
 
-// User Actions
 function switchToAccount(key) {
   callNative('switch', { accountKey: key });
   alert(`${t('switching')} ${key}\n${t('restartNotice')}`);
@@ -332,70 +473,389 @@ function deleteAccount(key) {
   }
 }
 
-// Migration Modal Logic
+// ==============================================================================
+// MODAL & MIGRATION HUB LOGIC
+// ==============================================================================
+
 async function openMigrationModal(sourceAccountKey) {
   state.migration.sourceAccount = sourceAccountKey || (state.activeAccount ? state.activeAccount.email : null);
   
-  // Populate target account dropdown
   const targetSelect = document.getElementById('modalTargetAccountSelect');
-  targetSelect.innerHTML = '';
-  
-  Object.keys(state.savedAccounts).forEach(key => {
-    if (key !== state.migration.sourceAccount) {
+  if (targetSelect) {
+    targetSelect.innerHTML = '';
+    Object.keys(state.savedAccounts).forEach(key => {
+      if (key !== state.migration.sourceAccount) {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.innerText = key;
+        targetSelect.appendChild(opt);
+      }
+    });
+
+    if (targetSelect.options.length === 0) {
       const opt = document.createElement('option');
-      opt.value = key;
-      opt.innerText = key;
+      opt.value = "";
+      opt.innerText = "Add another account first to migrate data";
       targetSelect.appendChild(opt);
     }
-  });
-
-  // If no other account saved, add placeholder
-  if (targetSelect.options.length === 0) {
-    const opt = document.createElement('option');
-    opt.value = "";
-    opt.innerText = "Add another account first to migrate data";
-    targetSelect.appendChild(opt);
   }
 
-  // Fetch local conversations list
-  await fetchConversationsList();
-  renderConversationPicker();
+  // Fetch updated projects, tasks, and conversations
+  await Promise.all([
+    fetchProjectsList(),
+    fetchTasksList(),
+    fetchConversationsList()
+  ]);
+
+  populateProjectFilterDropdown();
+  switchModalTab(state.activeModalTab || 'projects');
 
   const modal = document.getElementById('migrationModal');
-  modal.classList.add('active');
+  if (modal) modal.classList.add('active');
 }
 
 function closeMigrationModal() {
-  document.getElementById('migrationModal').classList.remove('active');
+  const modal = document.getElementById('migrationModal');
+  if (modal) modal.classList.remove('active');
 }
 
+function switchModalTab(tabName) {
+  state.activeModalTab = tabName;
+
+  const btnProjects = document.getElementById('modalTabProjectsBtn');
+  const btnTasks = document.getElementById('modalTabTasksBtn');
+  const btnConvs = document.getElementById('modalTabConversationsBtn');
+
+  if (btnProjects) btnProjects.className = `modal-tab-btn ${tabName === 'projects' ? 'active' : ''}`;
+  if (btnTasks) btnTasks.className = `modal-tab-btn ${tabName === 'tasks' ? 'active' : ''}`;
+  if (btnConvs) btnConvs.className = `modal-tab-btn ${tabName === 'conversations' ? 'active' : ''}`;
+
+  const paneP = document.getElementById('paneProjects');
+  const paneT = document.getElementById('paneTasks');
+  const paneC = document.getElementById('paneConversations');
+  const startBtn = document.getElementById('startMigrationBtn');
+
+  if (paneP) paneP.style.display = (tabName === 'projects') ? 'flex' : 'none';
+  if (paneT) paneT.style.display = (tabName === 'tasks') ? 'flex' : 'none';
+  if (paneC) paneC.style.display = (tabName === 'conversations') ? 'flex' : 'none';
+
+  if (startBtn) {
+    startBtn.style.display = (tabName === 'conversations') ? 'inline-flex' : 'none';
+  }
+
+  if (tabName === 'projects') renderProjectList();
+  else if (tabName === 'tasks') renderTaskList();
+  else if (tabName === 'conversations') renderConversationPicker();
+}
+
+// 1. Projects Rendering & Actions
+async function fetchProjectsList() {
+  try {
+    const res = await fetch('/api/projects').then(r => r.json()).catch(() => null);
+    if (res && Array.isArray(res)) {
+      state.projects = res;
+    }
+  } catch (e) {}
+}
+
+function renderProjectList() {
+  const container = document.getElementById('projectCardList');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!state.projects || state.projects.length === 0) {
+    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:12px;">No projects found</div>`;
+    return;
+  }
+
+  state.projects.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'project-item-card';
+
+    const isShared = p.is_shared;
+    const isInst2 = p.is_instance2_enabled;
+    const badgeClass = isShared ? 'badge-shared' : (isInst2 ? 'badge-account1' : 'badge-account1');
+    const badgeText = isShared ? t('sharedBadge') : (isInst2 ? t('account2OnlyBadge') : t('account1OnlyBadge'));
+
+    card.innerHTML = `
+      <div class="project-info-main">
+        <div class="project-title-row">
+          <span class="project-title-text">${p.name || p.id}</span>
+          <span class="badge-tag ${badgeClass}">${badgeText}</span>
+          <span class="badge-tag" style="background:rgba(255,255,255,0.06);color:var(--text-muted);">
+            💬 ${p.conversation_count}
+          </span>
+        </div>
+        <div class="project-path-text" title="${p.path}">${p.path || 'No folder path'}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <label class="ios-switch" title="${t('assignToAccount2')}">
+          <input type="checkbox" ${isInst2 ? 'checked' : ''} onchange="toggleProjectAssignment('${p.id}', this.checked)" />
+          <span class="ios-slider"></span>
+        </label>
+        <button class="btn btn-glass" style="padding:5px 10px; font-size:11px;" onclick="syncProjectExplicit('${p.id}')" title="${t('syncProjectNow')}">
+          <span>⇄ ${t('syncProjectNow')}</span>
+        </button>
+        <button class="btn btn-glass" style="padding:5px 8px; font-size:11px; color:#f87171; border-color:rgba(239,68,68,0.25);" onclick="unlinkProjectExplicit('${p.id}')" title="${t('removeFromAccount2')}">
+          <span>✕</span>
+        </button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+async function unlinkProjectExplicit(projectId) {
+  const targetAcc = getSecondaryAccountEmail();
+  try {
+    const res = await fetch('/api/project_unlink', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId: projectId,
+        account: targetAcc
+      })
+    }).then(r => r.json());
+
+    if (res && res.success) {
+      await fetchProjectsList();
+      renderProjectList();
+    }
+  } catch (e) {
+    alert('Failed to unlink project');
+  }
+}
+
+async function toggleProjectAssignment(projectId, enableInInstance2) {
+  const targetAcc = getSecondaryAccountEmail();
+  try {
+    if (enableInInstance2) {
+      await fetch('/api/project_sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: projectId,
+          targetAccount: targetAcc,
+          includeConversations: false
+        })
+      });
+    } else {
+      await fetch('/api/project_unlink', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: projectId,
+          account: targetAcc
+        })
+      });
+    }
+    await fetchProjectsList();
+    renderProjectList();
+  } catch (e) {
+    alert('Failed to update project profile assignment');
+  }
+}
+
+async function syncProjectExplicit(projectId) {
+  const targetAcc = getSecondaryAccountEmail();
+  try {
+    const res = await fetch('/api/project_sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId: projectId,
+        targetAccount: targetAcc,
+        includeConversations: true
+      })
+    }).then(r => r.json());
+
+    if (res && res.success) {
+      alert(t('migrationSuccess'));
+      await fetchProjectsList();
+      renderProjectList();
+    }
+  } catch (e) {
+    alert('Error syncing project');
+  }
+}
+
+function filterProjects(query) {
+  const q = query.toLowerCase().trim();
+  document.querySelectorAll('#projectCardList .project-item-card').forEach(card => {
+    const text = card.innerText.toLowerCase();
+    card.style.display = text.includes(q) ? 'flex' : 'none';
+  });
+}
+
+// 2. Tasks Rendering & Isolation Actions
+async function fetchTasksList() {
+  try {
+    const res = await fetch('/api/tasks').then(r => r.json()).catch(() => null);
+    if (res && Array.isArray(res)) {
+      state.tasks = res;
+    }
+  } catch (e) {}
+}
+
+function renderTaskList() {
+  const container = document.getElementById('taskCardList');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!state.tasks || state.tasks.length === 0) {
+    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:12px;">No scheduled tasks found</div>`;
+    return;
+  }
+
+  state.tasks.forEach(task => {
+    const card = document.createElement('div');
+    card.className = 'task-item-card';
+
+    const isIsolated = task.isolated_from_account2;
+    const isEnabled = task.enabled;
+    const isAcc2 = isAccount2(state.activeAccount && state.activeAccount.email);
+    const isOwnerAcc1 = !task.owner_account || !isAccount2(task.owner_account);
+    const isLocked = isAcc2 && isIsolated && isOwnerAcc1;
+
+    const isoBadgeClass = isLocked ? 'badge-disabled' : (isIsolated ? 'badge-isolated' : 'badge-shared');
+    const isoBadgeText = isLocked ? (t('taskLockedBadge') || '🔒 Locked') : (isIsolated ? t('taskIsolatedBadge') : t('taskSharedBadge'));
+
+    card.innerHTML = `
+      <div class="task-info-main">
+        <div class="task-title-row">
+          <span class="task-title-text">${task.name}</span>
+          <span class="badge-tag ${isoBadgeClass}">${isoBadgeText}</span>
+          <span class="badge-tag ${isEnabled ? 'badge-shared' : 'badge-disabled'}">
+            ${isEnabled ? t('taskEnabled') : t('taskDisabled')}
+          </span>
+        </div>
+        <div class="task-desc-text">${task.description || task.name} • ⏱ Next: ${task.next_run || 'N/A'}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="btn btn-glass" ${isLocked ? 'disabled' : ''} style="padding:5px 10px; font-size:11px; ${isLocked ? 'opacity:0.4;cursor:not-allowed;' : ''} border-color:${isIsolated ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}" onclick="${isLocked ? `alert('${t('taskPermissionDenied')}')` : `toggleTaskIsolationExplicit('${task.name}', ${!isIsolated})`}">
+          <span>${isIsolated ? '🛡 ' + t('unisolateTaskBtn') : '🔒 ' + t('isolateTaskBtn')}</span>
+        </button>
+        <label class="ios-switch" title="Toggle Task State" style="${isLocked ? 'opacity:0.4;cursor:not-allowed;' : ''}">
+          <input type="checkbox" ${isLocked ? 'disabled' : ''} ${isEnabled ? 'checked' : ''} onchange="${isLocked ? `alert('${t('taskPermissionDenied')}')` : `toggleTaskActiveState('${task.name}', this.checked)`}" />
+          <span class="ios-slider"></span>
+        </label>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+async function toggleTaskIsolationExplicit(taskName, isolate) {
+  try {
+    const res = await fetch('/api/task_isolate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        taskName: taskName,
+        ownerAccount: getPrimaryAccountEmail(),
+        isolateFromAccount2: isolate,
+        account: state.activeAccount ? state.activeAccount.email : getPrimaryAccountEmail()
+      })
+    }).then(r => r.json());
+
+    if (res && res.success) {
+      await fetchTasksList();
+      renderTaskList();
+    } else {
+      alert((res && res.error) || t('taskPermissionDenied'));
+      await fetchTasksList();
+      renderTaskList();
+    }
+  } catch (e) {
+    alert('Failed to update task isolation');
+  }
+}
+
+async function toggleTaskActiveState(taskName, enable) {
+  try {
+    const res = await fetch('/api/task_toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        taskName: taskName,
+        enable: enable,
+        account: state.activeAccount ? state.activeAccount.email : getPrimaryAccountEmail()
+      })
+    }).then(r => r.json());
+
+    if (res && res.success) {
+      await fetchTasksList();
+      renderTaskList();
+    } else {
+      alert((res && res.error) || t('taskPermissionDenied'));
+      await fetchTasksList();
+      renderTaskList();
+    }
+  } catch (e) {
+    alert('Failed to toggle task state');
+  }
+}
+
+// 3. Conversations & Migration
 async function fetchConversationsList() {
   try {
     const res = await fetch('/api/conversations').then(r => r.json()).catch(() => null);
     if (res && Array.isArray(res)) {
       state.conversations = res;
-    } else if (window.INITIAL_CONVERSATIONS) {
-      state.conversations = window.INITIAL_CONVERSATIONS;
     }
   } catch (err) {}
 }
 
+function populateProjectFilterDropdown() {
+  const sel = document.getElementById('convProjectFilterSelect');
+  if (!sel) return;
+  sel.innerHTML = `<option value="" data-i18n="allProjects">${t('allProjects')}</option>`;
+  
+  const projectsSeen = new Map();
+  state.conversations.forEach(c => {
+    if (c.project_id && !projectsSeen.has(c.project_id)) {
+      projectsSeen.set(c.project_id, c.project_name || c.project_id);
+    }
+  });
+
+  projectsSeen.forEach((name, pid) => {
+    const opt = document.createElement('option');
+    opt.value = pid;
+    opt.innerText = name;
+    sel.appendChild(opt);
+  });
+}
+
+function onFilterProjectChange(projectId) {
+  state.migration.selectedProjectId = projectId;
+  renderConversationPicker();
+}
+
 function renderConversationPicker() {
   const container = document.getElementById('conversationPickerList');
+  if (!container) return;
   container.innerHTML = '';
 
-  if (state.conversations.length === 0) {
-    container.innerHTML = `<div style="padding:16px; text-align:center; color:var(--text-muted); font-size:12px;">No active conversations found</div>`;
+  let filtered = state.conversations;
+  if (state.migration.selectedProjectId) {
+    filtered = filtered.filter(c => c.project_id === state.migration.selectedProjectId);
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div style="padding:16px; text-align:center; color:var(--text-muted); font-size:12px;">No conversations match filter</div>`;
     return;
   }
 
-  state.conversations.forEach(c => {
+  filtered.forEach(c => {
     const isChecked = state.migration.selectedIds.has(c.id);
     const item = document.createElement('label');
     item.className = 'conv-item';
     item.innerHTML = `
       <input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''} onchange="toggleConversationSelection('${c.id}', this.checked)" />
-      <span class="conv-title">${c.title || c.id}</span>
+      <div style="display:flex; flex-direction:column; flex:1; min-width:0;">
+        <span class="conv-title">${c.title || c.id}</span>
+        <span style="font-size:10.5px; color:var(--text-dim);">${c.project_name || 'Outside of Project'}</span>
+      </div>
       <span class="conv-date">${c.size_kb} KB • ${c.last_modified}</span>
     `;
     container.appendChild(item);
@@ -410,14 +870,18 @@ function toggleConversationSelection(id, checked) {
 function toggleSelectAllConversations(selectAll) {
   state.migration.selectedIds.clear();
   if (selectAll) {
-    state.conversations.forEach(c => state.migration.selectedIds.add(c.id));
+    let list = state.conversations;
+    if (state.migration.selectedProjectId) {
+      list = list.filter(c => c.project_id === state.migration.selectedProjectId);
+    }
+    list.forEach(c => state.migration.selectedIds.add(c.id));
   }
   renderConversationPicker();
 }
 
 function filterConversations(query) {
   const q = query.toLowerCase().trim();
-  document.querySelectorAll('.conv-item').forEach(item => {
+  document.querySelectorAll('#conversationPickerList .conv-item').forEach(item => {
     const text = item.innerText.toLowerCase();
     item.style.display = text.includes(q) ? 'flex' : 'none';
   });
@@ -458,7 +922,8 @@ async function executeMigration() {
     conversationIds: selectedList,
     mode: state.migration.mode,
     structure: state.migration.structure,
-    dualSync: document.getElementById('dualSyncCheckbox').checked
+    dualSync: document.getElementById('dualSyncCheckbox').checked,
+    projectId: state.migration.selectedProjectId || null
   };
 
   callNative('migrate', payload);

@@ -4,11 +4,11 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20%7C%20macOS%20%7C%20Linux-brightgreen.svg)]()
 [![Antigravity](https://img.shields.io/badge/Antigravity-2.0%2B-cyan.svg)]()
 [![UI Design](https://img.shields.io/badge/Design-iOS%20Liquid%20Glass-purple.svg)]()
-[![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20FA%20%7C%20ZH%20%7C%20ES-orange.svg)]()
+[![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20ES%20%7C%20FA%20%7C%20ZH-orange.svg)]()
 [![Developed by](https://img.shields.io/badge/Developed%20by-Madgod--xyz-blueviolet.svg)](https://github.com/Madgod-xyz)
 
-> **Super-fast 1-click Google Account Switcher, Real-Time Quota HUD, and AI Project & Chat Migration Suite for Google Antigravity.**  
-> Crafted with Apple iOS Liquid Glass aesthetics, fluid 60fps spring physics, and 4 global languages (English, Persian, Chinese, Spanish).
+> **Super-fast 1-click Google Account Switcher, Concurrent Dual-Instance Runner, Real-Time Quota HUD, and AI Project & Chat Migration Suite for Google Antigravity.**  
+> Crafted with Apple iOS Liquid Glass aesthetics, fluid 60fps spring physics, and multi-language support (English, Spanish, Persian, Chinese).
 
 <p align="center">
   <img src="assets/promo_banner.jpg" alt="Antigravity Account Switcher Banner" width="100%" style="border-radius: 16px; box-shadow: 0 12px 36px rgba(0,0,0,0.6);" />
@@ -16,106 +16,150 @@
 
 ---
 
-## 🌟 Quick Navigation / فهرست سریع
+## 🌟 Quick Navigation / Navegación Rápida
 
 - [English (🇬🇧 Overview & Features)](#-english)
+- [Español (🇪🇸 Descripción y Características)](#-español)
 - [فارسی (🇮🇷 راهنما و مستندات فارسی)](#-فارسی)
 - [简体中文 (🇨🇳 概述与使用指南)](#-简体中文)
-- [Español (🇪🇸 Descripción y Uso)](#-español)
-- [One-Line Installation](#-one-line-installation)
+- [Installation & Quick Start](#-installation)
+- [CLI Reference](#-cli-commands)
 - [Architecture & Mechanics](#-architecture--how-it-works)
 
 ---
 
-## 🚀 One-Line Installation
+## 🚀 Installation
 
 ### 🪟 Windows 10 & 11 (PowerShell)
-Open PowerShell and run:
+Open PowerShell as your standard user and run:
 ```powershell
 irm https://raw.githubusercontent.com/Madgod-xyz/antigravity-account-switcher/master/install.ps1 | iex
 ```
-*Creates `Antigravity Switcher` shortcut on your Desktop & Start Menu, and registers `agy-switch` in your PATH.*
+*Creates `Antigravity Switcher` shortcuts on your Desktop & Start Menu, installs background sync daemons, and registers `agy-switch` in your PATH.*
 
 ### 🍏 macOS (Apple Silicon M1/M2/M3/M4 & Intel)
 Open Terminal and run:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Madgod-xyz/antigravity-account-switcher/master/install.sh | bash
 ```
-*Builds and installs `AntigravitySwitcher.app` in `/Applications` and `~/Desktop`, and links `agy-switch` in terminal PATH.*
+*Builds and installs `AntigravitySwitcher.app` in `/Applications` and `~/Desktop`, and links `agy-switch` into your PATH.*
 
 ---
 
 ## 🇬🇧 English
 
 ### Overview
-Switching between multiple Google accounts on **Google Antigravity** can be frustrating because session credentials are securely locked inside **Windows Credential Manager** (`service: "gemini"`, `account: "antigravity"`) or **macOS Keychain**.
+Switching between multiple Google accounts on **Google Antigravity** can be tedious and disruptive because session credentials are bound inside **Windows Credential Manager** (`service: "gemini"`, `account: "antigravity"`) or **macOS Keychain**.
 
-**Antigravity Account Switcher & Migration Suite** by **[Madgod-xyz](https://github.com/Madgod-xyz)** is an ultra-fast, native cross-platform solution (GUI & CLI) that allows swapping identities in under 3 seconds and seamlessly migrating projects and AI agent conversations between accounts.
+**Antigravity Account Switcher & Migration Suite** by **[Madgod-xyz](https://github.com/Madgod-xyz)** is a high-performance native cross-platform solution (GUI, in-editor HUD pill, and CLI). It allows you to swap identities in under 3 seconds **or** run two completely isolated Antigravity instances side-by-side on the same machine with independent credentials, tasks, and project access.
 
 ### ✨ Key Features
-1. 🍏 **iOS Liquid Glass Aesthetic**: Multi-layer frosted glass blur (`backdrop-filter: blur(40px)`), dynamic specular sheen, and smooth 60fps spring physics.
-2. ⚡️ **Instant 1-Click Identity Swap**: Swap between personal, work, and client accounts without logging in each time.
-3. 🔄 **Smart Project & Chat Migration Hub**:
-   - **Selective Transfer**: Transfer all conversations, a specific project, or choose individual chat threads.
-   - **Safe Copy vs. Cut**: Clone projects to continue with new quota in the target account without altering original data, or Move and clean up source.
-   - **Flexible Layout**: Keep conversations as separate pages or merge into a unified chronological project timeline.
-   - **Continuous Dual-Sync**: Option to keep future AI agent updates synchronized automatically across both accounts.
-4. 📊 **Live Model Quota & Tier HUD**:
-   - Live percentage meters and reset countdown timers for:
+
+1. ⚡️ **Dual-Instance Concurrent Multi-Window**:
+   - Open a 2nd Antigravity window with a secondary Google account (`--user-data-dir="%APPDATA%\Antigravity-Instance2"`).
+   - Work simultaneously on different projects or split workflows between personal and corporate accounts without logging out.
+   - Separate DevTools debugging ports and state isolation.
+
+2. 🔄 **Seamless In-Place Single-Window Switching**:
+   - Swap identities in under 3 seconds directly within your active window.
+   - Preserves active workspace paths and reloads credentials smoothly.
+
+3. ⏱ **Scheduled Tasks & Cron Isolation**:
+   - Tasks and scheduled automations created in Account 1 are isolated from Account 2.
+   - Prevents accidental execution, modification, or deletion across accounts.
+   - Clear permission enforcement with interactive visual status badges (`🔒 Locked`, `🛡️ Isolated`, `🌐 Shared`).
+
+4. 📁 **Granular Project & Conversation Sync Hub**:
+   - **Selective Workspace Sharing**: Choose exactly which projects and folders appear in Instance 2. Unselected projects will not bleed into the second instance.
+   - **Safe Copy vs. Cut**: Clone projects to continue with fresh model quotas in the target account, or move and clean up the source.
+   - **Transcript & Brain Migration**: Safely migrates local SQLite histories and agent brain artifacts without corrupting internal indices.
+
+5. 📊 **In-Editor HUD Pill & Real-Time Quota Monitor**:
+   - Injected live pill inside the Antigravity model bar displaying current account name and tier badge (`PRO`, `ULTRA`, `FREE`).
+   - Live reset countdowns and percentage gauges for:
      - `Gemini 3.8 Flash High`
      - `Gemini 3.1 Pro`
      - `Claude Sonnet 4.6`
      - `GPT-OSS 120B`
-   - Real-time detection of account tier: `Free`, `Pro`, `Ultra`, `Enterprise`.
-5. 🌍 **Full 4-Language Localization**: English, Persian (full RTL with Vazirmatn font), Chinese Simplified, and Spanish.
-6. 🔒 **100% Offline & Private**: Zero data transmission to third-party servers. All tokens remain stored in your system's native secure credential vault.
+
+6. 🍏 **iOS Liquid Glass Aesthetic**:
+   - Frosted acrylic glass styling (`backdrop-filter: blur(40px)`), refined specular lighting, and fluid 60fps spring animations.
+
+7. 🔒 **Privacy & Zero-Knowledge Credential Security**:
+   - 100% local and offline. Never transmits tokens or credentials to external servers.
+   - All OAuth tokens remain securely stored inside your operating system's native credential vault.
+
+---
+
+## 🇪🇸 Español
+
+### Descripción General
+Cambiar entre múltiples cuentas de Google en **Google Antigravity** suele ser un proceso complejo debido a que las credenciales de sesión están almacenadas en el **Administrador de Credenciales de Windows** (`service: "gemini"`, `account: "antigravity"`) o en el **Llavero de macOS**.
+
+La **Suite de Cambio de Cuenta y Migración para Antigravity** desarrollada por **[Madgod-xyz](https://github.com/Madgod-xyz)** es una solución nativa multiplataforma de alto rendimiento (GUI de escritorio, píldora HUD integrada en el editor y CLI). Permite alternar identidades en menos de 3 segundos **o** ejecutar dos ventanas de Antigravity simultáneamente de manera independiente con cuentas, tareas y proyectos completamente aislados.
+
+### ✨ Características Principales
+
+1. ⚡️ **Ejecución Concurrente de Dos Instancias (Doble Ventana)**:
+   - Inicia una segunda ventana de Antigravity con tu cuenta secundaria (`--user-data-dir="%APPDATA%\Antigravity-Instance2"`).
+   - Trabaja en paralelo en proyectos personales y profesionales sin necesidad de cerrar sesión ni interrumpir tu flujo de trabajo.
+   - Puertos de depuración DevTools independientes y entornos de ejecución aislados.
+
+2. 🔄 **Cambio Rápido en la Misma Ventana**:
+   - Alterna entre cuentas en menos de 3 segundos dentro de la misma ventana activa.
+   - Mantiene abiertos tus archivos y espacios de trabajo actuales.
+
+3. ⏱ **Aislamiento de Tareas Programadas y Automatizaciones**:
+   - Las tareas programadas y cron jobs creados en la Cuenta 1 no se ejecutarán ni interferirán con la Cuenta 2.
+   - Evita la activación accidental de tareas entre perfiles con control de permisos y etiquetas visuales (`🔒 Bloqueada`, `🛡️ Aislada`, `🌐 Compartida`).
+
+4. 📁 **Centro Granular de Sincronización y Migración**:
+   - **Selección Selectiva de Proyectos**: Elige con precisión qué proyectos y carpetas están disponibles para la segunda cuenta. Los proyectos no seleccionados permanecen invisibles en la Instancia 2.
+   - **Copia Segura o Traslado**: Clona conversaciones de IA para continuar programando con cuotas renovadas, o traslada todo el historial limpiando el origen.
+   - **Migración de Transcripciones y Memoria Local**: Mueve el historial SQLite y los artefactos del agente sin dañar los datos.
+
+5. 📊 **Píldora HUD Integrada y Monitor de Cuotas en Vivo**:
+   - Píldora interactiva integrada en la barra de selección de modelos de Antigravity que muestra el nombre de la cuenta y la insignia del plan (`PRO`, `ULTRA`, `FREE`).
+   - Medidores de cuota y temporizadores de reinicio en tiempo real para:
+     - `Gemini 3.8 Flash High`
+     - `Gemini 3.1 Pro`
+     - `Claude Sonnet 4.6`
+     - `GPT-OSS 120B`
+
+6. 🍏 **Diseño Estilo iOS Liquid Glass**:
+   - Interfaz con efecto de cristal esmerilado (`backdrop-filter: blur(40px)`), reflejos translúcidos y animaciones fluidas a 60 fps.
+
+7. 🔒 **Privacidad Total y Cero Fuga de Credenciales**:
+   - Ejecución 100% local y sin servidores externos.
+   - Todas las credenciales se almacenan directamente en los módulos de seguridad protegidos de Windows y macOS.
 
 ---
 
 ## 🇮🇷 فارسی
 
-### معرفی و ویژگی‌ها
-جابه‌جایی بین حساب‌های مختلف گوگل در محیط **Google Antigravity** به دلیل ذخیره‌سازی توکن‌ها در **Windows Credential Manager** یا **macOS Keychain** نیازمند خروج و ورود مکرر است.
+### معرفی و قابلیت‌ها
+این سوئیت جامع توسعه داده شده توسط **[Madgod-xyz](https://github.com/Madgod-xyz)**، راه‌حلی فوق‌العاده سریع و نیتیو برای سوئیچ هویت‌ها، اجرای همزمان دو پنجره مجزا و انتقال هوشمند پروژه‌ها و مکالمات ایجنت در **Google Antigravity** است.
 
-این سوئیت جامع توسعه داده شده توسط **[Madgod-xyz](https://github.com/Madgod-xyz)**، راه‌حلی فوق‌العاده سریع و نیتیو برای سوئیچ آنی هویت‌ها و همچنین **انتقال و مهاجرت هوشمند پروژه‌ها و مکالمات ایجنت بین اکانت‌ها** فراهم می‌سازد.
-
-### 🌟 قابلیت‌های برجسته:
-* 🍏 **طراحی فوق‌لوکس شیشه‌ای مایع (iOS Liquid Glass)** با افکت‌های بلور عمیق، حاشیه‌های نوری کریستالی و فیزیک انیمیشن اسپرینگ مشابه کنترل‌سنتر آیفون.
-* ⚡️ **سوئیچ زیر ۳ ثانیه** بین جیمیل‌ها به همراه بازنشانی خودکار و روان نرم‌افزار.
-* 🔄 **مرکز هوشمند انتقال و مهاجرت پروژه‌ها و گفتگوهای ایجنت**:
-  - امکان کپی ایمن (Safe Copy) برای حفظ داده در هر دو اکانت یا انتقال کامل (Cut).
-  - انتخاب گزینشی مکالمات (یک چت، چند پروژه انتخابی یا همه).
-  - چیدمان صفحات مجزا یا تجمیع در یک پروژه واحد.
-  - همگام‌سازی دوطرفه خودکار (Continuous Dual-Sync).
-* 📊 **نمایشگر سهمیه زنده و رتبه اشتراک اکانت**: تفکیک دقیق مدل‌های `Gemini 3.8 Flash High`، `Gemini 3.1 Pro`، `Claude Sonnet 4.6` و `GPT-OSS 120B` به همراه تایمر لحظه‌ای ریست و نمایش رتبه (`Pro`، `Ultra`، `Free`).
-* 🌍 **پشتیبانی کامل ۴ زبانه** با راست‌چین هوشمند و فونت وزیرمتن برای زبان فارسی.
+### 🌟 قابلیت‌های کلیدی:
+* ⚡️ **اجرای همزمان دو پنجره مجزا (Dual-Instance Concurrent Runner)** با دو جیمیل کاملاً تفکیک‌شده و پوشه‌های مستقل داده (`Antigravity-Instance2`).
+* 🔄 **سوئیچ تک‌پنجره‌ای زیر ۳ ثانیه** بدون بستن یا از دست رفتن فایل‌های در حال ویرایش.
+* ⏱ **ایزوله‌سازی وظایف زمان‌بندی شده (Scheduled Tasks Isolation)**: جلوگیری قطعی از اجرای تسک‌های اکانت ۱ در اکانت ۲ همراه با قفل امنیتی دسترسی.
+* 📁 **مرکز گزینش و همگام‌سازی پروژه‌ها (Granular Project Sync Hub)**: انتخاب چک‌باکسی پروژه‌های مجاز برای اکانت دوم بدون قاطی شدن فایل‌های ناخواسته.
+* 📊 **نشانگر شناور درون‌برنامه‌ای (In-Editor HUD Pill)** در نوار انتخاب مدل با نمایش رتبه (`PRO` / `ULTRA`) و مصرف لحظه‌ای سهمیه‌ها.
+* 🍏 **طراحی فوق‌العاده زیبای شیشه‌ای اپل (iOS Liquid Glass)** با انیمیشن‌های نرم ۶۰ فریم و پشتیبانی کامل راست‌چین (RTL).
 
 ---
 
 ## 🇨🇳 简体中文
 
 ### 概述与核心特性
-在 **Google Antigravity** 中切换多个 Google 账号通常十分繁琐。**Antigravity 账号切换器与项目迁移套件**（由 **[Madgod-xyz](https://github.com/Madgod-xyz)** 打造）提供了一键秒级切换、实时额度监测以及强大的 Agent 会话与项目资产跨账号智能迁移功能。
+由 **[Madgod-xyz](https://github.com/Madgod-xyz)** 精心打造的 Antigravity 账号管理与迁移套件，提供一键极速切号、多实例双开并发、任务隔离及项目资产跨账号同步功能。
 
-* 🍏 **iOS 晶莹磨砂设计**：高品质流体玻璃材质与原生 60 帧弹簧动画。
-* ⚡️ **一键极速切换**：秒级切换工作、个人或测试账号，自动重启生效。
-* 🔄 **会话与项目迁移中心**：
-  - 支持安全克隆（两端保留）或完整剪切移动。
-  - 支持独立会话项目排版或合并为主时间轴。
-  - 可开启双向实时同步。
-* 📊 **多模型额度实时追踪**：支持查看 Gemini 3.8 Flash、Gemini 3.1 Pro、Claude Sonnet 4.6 以及订阅版本（Free / Pro / Ultra）。
-
----
-
-## 🇪🇸 Español
-
-### Descripción y Características
-Cambiar entre cuentas de Google en **Google Antigravity** ahora es instantáneo gracias a la suite desarrollada por **[Madgod-xyz](https://github.com/Madgod-xyz)**.
-
-* 🍏 **Diseño Estilo iOS Liquid Glass**: Acabado de cristal esmerilado con física de resortes y aceleración por GPU.
-* ⚡️ **Cambio en 1 Clic**: Alterna identidades en menos de 3 segundos.
-* 🔄 **Centro Inteligente de Migración**: Clona o transfiere conversaciones y artefactos de tus proyectos entre cuentas sin perder tu progreso.
-* 📊 **Monitor de Cuotas en Tiempo Real**: Seguimiento preciso de modelos de IA y estado de cuenta (Free, Pro, Ultra).
+* ⚡️ **多开并发实例**：同时运行两个独立的 Antigravity 窗口，各自绑定独立 Google 账号。
+* 🔄 **秒级同窗口切换**：3 秒内平滑切换身份，保留当前项目。
+* ⏱ **定时任务隔离**：主账号的自动化定时任务不会在第二账号触发，保证环境干净独立。
+* 📁 **项目精细化勾选与同步**：按需分配对第二实例可见的项目和 Agent 对话。
+* 📊 **编辑器内嵌配额 HUD**：实时显示剩余调用量及重置倒计时。
 
 ---
 
@@ -123,7 +167,7 @@ Cambiar entre cuentas de Google en **Google Antigravity** ahora es instantáneo 
 
 ```bash
 agy-switch                 # 🖥 Open the iOS Liquid Glass Desktop GUI
-agy-switch --usage         # 📊 View live quotas and countdown in terminal
+agy-switch --usage         # 📊 View live model quotas and countdowns in terminal
 agy-switch --list          # 📋 List all saved accounts and active session
 agy-switch --switch email  # ⚡️ Switch to a specific account immediately
 agy-switch --save          # 💾 Save the current active account
@@ -138,24 +182,24 @@ agy-switch --about         # ℹ️ Display author & version information
 
 ```mermaid
 graph TD
-    A[Google Antigravity] -->|Stores OAuth Tokens| B[OS Credential Vault]
-    B -->|Windows: advapi32.dll| C[Windows Credential Manager]
-    B -->|macOS: security| D[macOS Keychain]
+    A[Google Antigravity Primary Window] -->|Local CDP Port 64591| B[Sync Daemon & HUD Injector]
+    C[Google Antigravity Secondary Window] -->|Local CDP Port 54851| B
     
-    E[Antigravity Switcher Core] -->|Reads & Writes| B
-    E -->|Queries Live Quotas & Tiers| F[Google CloudCode API]
-    E -->|Scans & Clones Transcripts / DBs| G[Local Antigravity Brain & SQLite DBs]
+    B -->|Task Isolation & Manifest| D[Task Isolation Engine]
+    B -->|Project Sync Rules| E[Migration & Sync Engine]
     
-    H[iOS Liquid Glass Web App] -->|Interactive GUI & i18n| E
+    D -->|Windows SchTasks / Crons| F[Operating System Task Scheduler]
+    E -->|Conversations & Brain Folders| G[Local Antigravity Brain DBs]
+    
+    B -->|Vault Interop: advapi32.dll / security| H[OS Credential Manager / Keychain]
+    B -->|Quota & Tier Queries| I[Google CloudCode API]
+    
+    J[iOS Liquid Glass Web App & In-Editor HUD] -->|IPC & REST API| B
 ```
-
-1. **Tokens Vault Interop**: Interacts directly with Windows Credential Manager (`gemini:antigravity`, `gemini`) via C# P/Invoke, and macOS Keychain via the `security` subsystem.
-2. **Offline Local Agent Storage**: Inspects SQLite databases in `~/.gemini/antigravity/conversations/` and brain folders in `~/.gemini/antigravity/brain/` to safely clone and re-link project histories across accounts.
-3. **No Interruption to In-IDE Tools**: Works seamlessly alongside the **Antigravity Quota Monitor & Smart RTL Suite**.
 
 ---
 
 ## 📄 License
 Distributed under the **MIT License**. See `LICENSE` for details.
 
-Developed with ❤️ by **[Madgod-xyz](https://github.com/Madgod-xyz)**.
+Developed with precision and care by **[Madgod-xyz](https://github.com/Madgod-xyz)**.

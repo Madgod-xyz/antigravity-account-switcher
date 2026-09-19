@@ -15,6 +15,7 @@ import socket
 import time
 import subprocess
 import threading
+from pathlib import Path
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import quota_engine
@@ -47,40 +48,37 @@ def save_manifest(manifest):
     with open(MANIFEST_PATH, 'w', encoding='utf-8') as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)
 
+def restart_language_server():
+    sys_name = quota_engine.get_current_system()
+    if sys_name == 'windows':
+        subprocess.run(['powershell', '-NoProfile', '-Command', 'Get-Process -Name language_server -ErrorAction SilentlyContinue | Stop-Process -Force'], capture_output=True)
+    elif sys_name == 'macos':
+        subprocess.run(['pkill', '-9', '-f', 'language_server'], capture_output=True)
+
 def restart_antigravity():
     sys_name = quota_engine.get_current_system()
     if sys_name == 'windows':
-        subprocess.run(['powershell', '-Command', 'Get-Process -Name Antigravity -ErrorAction SilentlyContinue | Stop-Process -Force'], capture_output=True)
-        time.sleep(1)
-        # Find exe
+        subprocess.run(['powershell', '-NoProfile', '-Command', 'Get-Process -Name Antigravity, language_server -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue'], capture_output=True)
+        time.sleep(1.2)
         paths = [
-            os.path.expandvars(r"%LOCALAPPDATA%\Programs\Antigravity\Antigravity.exe"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\antigravity\Antigravity.exe"),
             os.path.expandvars(r"%ProgramFiles%\Antigravity\Antigravity.exe"),
             os.path.expandvars(r"%ProgramFiles(x86)%\Antigravity\Antigravity.exe"),
         ]
         exe = next((p for p in paths if os.path.exists(p)), None)
         if exe:
-            subprocess.Popen([exe], creationflags=subprocess.DETACHED_PROCESS if sys_name == 'windows' else 0)
+            DETACHED_PROCESS = 0x00000008
+            CREATE_NEW_PROCESS_GROUP = 0x00000200
+            subprocess.Popen([exe], creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
         else:
-            subprocess.Popen(['start', 'Antigravity'], shell=True)
+            subprocess.run(['powershell', '-NoProfile', '-Command', 'Start-Process Antigravity'], capture_output=True)
     elif sys_name == 'macos':
         subprocess.run(['pkill', '-9', '-f', '/Applications/Antigravity.app'], capture_output=True)
-        time.sleep(1)
+        subprocess.run(['pkill', '-9', '-f', 'language_server'], capture_output=True)
+        time.sleep(1.0)
         subprocess.Popen(['open', '/Applications/Antigravity.app'])
 
-def switch_account(account_key, no_restart=False):
-    manifest = load_manifest()
-    entry = manifest.get(account_key)
-    if not entry:
-        return {'success': False, 'error': f"Account '{account_key}' not found"}
-    
-    token_file = entry.get('token_file')
-    if not token_file or not os.path.exists(token_file):
-        return {'success': False, 'error': "Token file missing"}
-
-    with open(token_file, 'r', encoding='utf-8') as f:
-        token = f.read().strip()
-
+def write_token_to_credential_manager(token):
     sys_name = quota_engine.get_current_system()
     if sys_name == 'windows':
         import ctypes
@@ -124,9 +122,424 @@ def switch_account(account_key, no_restart=False):
     elif sys_name == 'macos':
         subprocess.run(['security', 'add-generic-password', '-U', '-s', 'gemini', '-a', 'antigravity', '-w', token])
 
+_launch_dual_lock = threading.Lock()
+_last_dual_launch_time = 0
+_dual_launch_in_progress = False
+
+def is_dual_launching():
+    """Returns True if a dual instance launch is currently swapping credentials temporarily."""
+    return _dual_launch_in_progress
+
+def is_instance2_running():
+    """Check if Antigravity-Instance2 is currently running, avoiding false positives from non-antigravity processes."""
+    try:
+        import psutil
+        for p in psutil.process_iter(['pid', 'name', 'cmdline']):
+            name = (p.info.get('name') or '').lower()
+            if 'antigravity' in name:
+                cmd = p.info.get('cmdline') or []
+                if any('Antigravity-Instance2' in arg for arg in cmd):
+                    return True
+    except Exception:
+        pass
+    return False
+
+def focus_instance2():
+    """
+    Brings the existing Antigravity-Instance2 window to the foreground and un-minimizes it.
+    Uses CDP Page.bringToFront combined with native Win32 window restoration.
+    """
+    focused = False
+    sys_name = quota_engine.get_current_system()
+    if sys_name == 'windows':
+        appdata = Path(os.getenv("APPDATA", str(Path.home() / "AppData" / "Roaming")))
+        inst2_dir = appdata / "Antigravity-Instance2"
+        port_file = inst2_dir / "DevToolsActivePort"
+        
+        # 1. CDP Page.bringToFront via active DevTools port
+        if port_file.exists():
+            try:
+                with open(port_file, 'r', encoding='utf-8') as f:
+                    lines = f.read().strip().split('\n')
+                    port = int(lines[0]) if lines else 0
+                if port > 0:
+                    req = urllib.request.Request(f"http://127.0.0.1:{port}/json/list")
+                    with urllib.request.urlopen(req, timeout=1.0) as resp:
+                        targets = json.loads(resp.read().decode('utf-8'))
+                    page = next((t for t in targets if t.get("type") == "page" and "about:blank" not in t.get("url", "")), None)
+                    if not page:
+                        page = next((t for t in targets if t.get("type") == "page"), None)
+                    if page and page.get("webSocketDebuggerUrl"):
+                        import websockets
+                        import asyncio
+                        async def _cdp_bring_front():
+                            async with websockets.connect(page["webSocketDebuggerUrl"], ping_timeout=1.5) as ws:
+                                await ws.send(json.dumps({"id": 1, "method": "Page.bringToFront"}))
+                                await ws.recv()
+                        asyncio.run(_cdp_bring_front())
+                        focused = True
+            except Exception:
+                pass
+
+        # 2. Native Win32 window restoration and foreground activation
+        try:
+            import ctypes
+            from ctypes import wintypes
+            import psutil
+
+            inst2_pids = set()
+            for p in psutil.process_iter(['pid', 'name', 'cmdline']):
+                name = (p.info.get('name') or '').lower()
+                if 'antigravity' in name:
+                    cmd = p.info.get('cmdline') or []
+                    if any('Antigravity-Instance2' in arg for arg in cmd):
+                        inst2_pids.add(p.info['pid'])
+
+            if inst2_pids:
+                user32 = ctypes.windll.user32
+                h_desk = user32.OpenDesktopW('Default', 0, False, 0x01FF)
+                if h_desk:
+                    user32.SetThreadDesktop(h_desk)
+
+                WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+                def enum_cb(hwnd, lparam):
+                    pid = wintypes.DWORD()
+                    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                    if pid.value in inst2_pids:
+                        length = user32.GetWindowTextLengthW(hwnd)
+                        if length > 0:
+                            SW_RESTORE = 9
+                            user32.ShowWindow(hwnd, SW_RESTORE)
+                            user32.BringWindowToTop(hwnd)
+                            user32.keybd_event(0x12, 0, 0, 0)
+                            user32.SetForegroundWindow(hwnd)
+                            user32.keybd_event(0x12, 0, 2, 0)
+                    return True
+
+                user32.EnumDesktopWindows(h_desk, WNDENUMPROC(enum_cb), 0)
+                focused = True
+        except Exception:
+            pass
+    elif sys_name == 'macos':
+        try:
+            subprocess.run(['osascript', '-e', 'tell application "Antigravity" to activate'], capture_output=True)
+            focused = True
+        except Exception:
+            pass
+    return focused
+
+def launch_dual_instance(account_key, project_path=None):
+    """
+    Safely launches or focuses a concurrent secondary Antigravity instance under the same Windows user
+    with an isolated profile (--user-data-dir) and target account credentials.
+    Zero interference with primary active session.
+    """
+    global _last_dual_launch_time, _dual_launch_in_progress
+    with _launch_dual_lock:
+        now = time.time()
+        # Debounce rapid clicks within 2.5s
+        if now - _last_dual_launch_time < 2.5:
+            return {'success': True, 'msg': 'در حال آماده‌سازی پنجره دوم...'}
+        _last_dual_launch_time = now
+
+        manifest = load_manifest()
+        entry = manifest.get(account_key)
+        if not entry and account_key:
+            entry = next((v for k, v in manifest.items() if k.lower() == account_key.lower() or v.get('email', '').lower() == account_key.lower()), None)
+        if not entry and not account_key:
+            # Auto-detect secondary account from manifest
+            active_email = ""
+            try:
+                active_q = quota_engine.fetch_quota_and_tier()
+                if active_q and active_q.get('email'):
+                    active_email = active_q['email']
+            except Exception:
+                pass
+            if not active_email and manifest:
+                active_email = list(manifest.keys())[0]
+            for k, v in manifest.items():
+                if k.lower() != active_email.lower() and v.get('email', '').lower() != active_email.lower():
+                    entry = v
+                    account_key = k
+                    break
+        if not entry:
+            return {'success': False, 'error': f"حساب '{account_key}' در لیست حساب‌ها یافت نشد"}
+        
+        token_file = entry.get('token_file')
+        if token_file:
+            token_file = os.path.normpath(token_file)
+        if not token_file or not os.path.exists(token_file):
+            return {'success': False, 'error': f"فایل توکن حساب '{account_key}' موجود نیست"}
+            
+        with open(token_file, 'r', encoding='utf-8') as f:
+            target_token = f.read().strip()
+            
+        sys_name = quota_engine.get_current_system()
+        appdata = Path(os.getenv("APPDATA", str(Path.home() / "AppData" / "Roaming")))
+        inst2_dir = appdata / "Antigravity-Instance2"
+
+        # Resolve designated project path for Instance 2 if not passed explicitly
+        if not project_path:
+            try:
+                prof_man = migration_engine.load_profile_sync_manifest()
+                for pid, pdata in prof_man.get("project_profiles", {}).items():
+                    assigned = pdata.get("assigned_accounts", [])
+                    if any(account_key.lower() in a.lower() for a in assigned):
+                        cand_path = pdata.get("path")
+                        if cand_path and os.path.exists(cand_path):
+                            project_path = cand_path
+                            break
+            except Exception:
+                pass
+
+        # If Instance 2 is already running, focus and bring to front directly!
+        if is_instance2_running():
+            focus_instance2()
+            return {
+                'success': True,
+                'account': account_key,
+                'user_data_dir': str(inst2_dir),
+                'project_path': project_path or '',
+                'msg': 'پنجره دوم فعال شد'
+            }
+
+        # Deterministic primary token resolution
+        primary_token = None
+        active_email = ""
+        active_quota_file = Path.home() / ".gemini" / "antigravity" / "active_quota.json"
+        if active_quota_file.exists():
+            try:
+                with open(active_quota_file, 'r', encoding='utf-8') as aqf:
+                    aq_data = json.load(aqf)
+                    if aq_data.get('email'):
+                        active_email = aq_data['email']
+            except Exception:
+                pass
+
+        if active_email in manifest and os.path.exists(manifest[active_email].get('token_file', '')):
+            try:
+                with open(manifest[active_email]['token_file'], 'r', encoding='utf-8') as pf:
+                    primary_token = pf.read().strip()
+            except Exception:
+                pass
+
+        if not primary_token:
+            for k, v in manifest.items():
+                if k != account_key and os.path.exists(v.get('token_file', '')):
+                    try:
+                        with open(v['token_file'], 'r', encoding='utf-8') as pf:
+                            primary_token = pf.read().strip()
+                            break
+                    except Exception:
+                        pass
+
+        if not primary_token:
+            primary_token = quota_engine.get_keychain_token()
+
+        if sys_name == 'windows':
+            inst2_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Clean stale locks and ports
+            for f_name in ["DevToolsActivePort", "lockfile"]:
+                f_p = inst2_dir / f_name
+                if f_p.exists():
+                    try:
+                        f_p.unlink()
+                    except Exception:
+                        pass
+
+            # Pre-configure instance 2 project in app_storage.json if designated
+            designated_pid = ""
+            try:
+                prof_man = migration_engine.load_profile_sync_manifest()
+                for pid, pdata in prof_man.get("project_profiles", {}).items():
+                    if project_path and (pdata.get("path", "").lower() == str(project_path).lower() or pid == project_path):
+                        designated_pid = pid
+                        break
+                    elif not designated_pid and any(account_key.lower() in a.lower() for a in pdata.get("assigned_accounts", [])):
+                        designated_pid = pid
+            except Exception:
+                pass
+
+            try:
+                storage_p = inst2_dir / "app_storage.json"
+                s_data = {}
+                if storage_p.exists():
+                    with open(storage_p, 'r', encoding='utf-8') as sf:
+                        s_data = json.load(sf)
+                if designated_pid:
+                    s_data["new-convo-last-selected-project"] = designated_pid
+                s_data["antigravity:instance_id"] = "instance_2"
+                s_data["antigravity:account_email"] = account_key
+                if project_path:
+                    s_data["antigravity:designated_project"] = project_path
+                # Prime quota in app_storage so Instance 2 immediately displays secondary account info
+                sec_quota = quota_engine.fetch_quota_and_tier(target_token)
+                if sec_quota:
+                    s_data["antigravity:active_quota"] = json.dumps(sec_quota)
+                with open(storage_p, 'w', encoding='utf-8') as sf:
+                    json.dump(s_data, sf, indent=2)
+            except Exception:
+                pass
+
+            paths = [
+                os.path.expandvars(r"%LOCALAPPDATA%\Programs\antigravity\Antigravity.exe"),
+                os.path.expandvars(r"%ProgramFiles%\Antigravity\Antigravity.exe"),
+                os.path.expandvars(r"%ProgramFiles(x86)%\Antigravity\Antigravity.exe"),
+            ]
+            exe = next((p for p in paths if os.path.exists(p)), None)
+            if not exe:
+                try:
+                    import psutil
+                    for p in psutil.process_iter(['name', 'exe']):
+                        if 'antigravity' in (p.info.get('name') or '').lower() and p.info.get('exe'):
+                            if os.path.exists(p.info['exe']):
+                                exe = p.info['exe']
+                                break
+                except Exception:
+                    pass
+            if not exe:
+                return {'success': False, 'error': 'فایل اجرایی Antigravity.exe یافت نشد'}
+
+            _dual_launch_in_progress = True
+            # Prime target token in credential manager for instance 2 startup
+            write_token_to_credential_manager(target_token)
+            
+            # Launch secondary instance with isolated user-data-dir and designated project
+            DETACHED_PROCESS = 0x00000008
+            CREATE_NEW_PROCESS_GROUP = 0x00000200
+            CREATE_BREAKAWAY_FROM_JOB = 0x01000000
+            cmd = [exe, f'--user-data-dir={str(inst2_dir)}']
+            if project_path and os.path.exists(project_path):
+                cmd.append(project_path)
+            flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            try:
+                proc = subprocess.Popen(cmd, creationflags=flags | CREATE_BREAKAWAY_FROM_JOB)
+            except Exception:
+                proc = subprocess.Popen(cmd, creationflags=flags)
+            
+            # Restore primary token and bring window to front
+            def _post_launch_worker():
+                global _dual_launch_in_progress
+                time.sleep(4.5)
+                if primary_token:
+                    write_token_to_credential_manager(primary_token)
+                    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [DUAL] Restored primary token for active session.", flush=True)
+                _dual_launch_in_progress = False
+
+                # Bring window to front once rendered
+                for _ in range(12):
+                    time.sleep(0.5)
+                    if focus_instance2():
+                        break
+
+            threading.Thread(target=_post_launch_worker, daemon=True).start()
+            
+            return {
+                'success': True,
+                'pid': proc.pid,
+                'account': account_key,
+                'user_data_dir': str(inst2_dir),
+                'msg': f'پنجره دوم با اکانت {account_key} اجرا شد'
+            }
+        elif sys_name == 'macos':
+            app_path = '/Applications/Antigravity.app'
+            if not os.path.exists(app_path):
+                return {'success': False, 'error': 'Antigravity.app not found on macOS'}
+            home = Path.home()
+            inst2_dir = home / "Library" / "Application Support" / "Antigravity-Instance2"
+            inst2_dir.mkdir(parents=True, exist_ok=True)
+            write_token_to_credential_manager(target_token)
+            cmd = ['open', '-n', '-a', app_path, '--args', f'--user-data-dir={str(inst2_dir)}']
+            proc = subprocess.Popen(cmd)
+            def _restore_primary_mac():
+                time.sleep(5.0)
+                if primary_token:
+                    write_token_to_credential_manager(primary_token)
+            threading.Thread(target=_restore_primary_mac, daemon=True).start()
+            return {'success': True, 'pid': proc.pid, 'account': account_key, 'user_data_dir': str(inst2_dir)}
+        else:
+            return {'success': False, 'error': 'Dual-instance launch is optimized for Windows/macOS'}
+
+def switch_account(account_key, no_restart=False):
+    manifest = load_manifest()
+    entry = manifest.get(account_key)
+    if not entry:
+        return {'success': False, 'error': f"Account '{account_key}' not found"}
+    
+    token_file = entry.get('token_file')
+    if not token_file or not os.path.exists(token_file):
+        return {'success': False, 'error': "Token file missing"}
+
+    with open(token_file, 'r', encoding='utf-8') as f:
+        token = f.read().strip()
+
+    write_token_to_credential_manager(token)
+
+    email = entry.get('email', account_key)
+    clean_name = email.split('@')[0].split('.')[0].capitalize() if ('@' in email) else 'User'
+    tier = entry.get('tier', 'Google AI Pro')
+    tier_code = entry.get('tier_code', 'pro')
+    rem = entry.get('remaining_pct', 100.0)
+    quota_data = {
+        'email': email,
+        'name': clean_name,
+        'tier': tier,
+        'tier_code': tier_code,
+        'session': {
+            'name': 'Gemini Models',
+            'used_pct': round(100.0 - rem, 1),
+            'remaining_pct': round(rem, 1),
+            'resets_in': 'Ready'
+        },
+        'pools': [
+            {'name': 'Gemini 3.8 Flash High', 'used_pct': round(100.0 - rem, 1), 'remaining_pct': round(rem, 1), 'resets_in': 'Ready'},
+            {'name': 'Gemini 3.1 Pro', 'used_pct': round(100.0 - rem, 1), 'remaining_pct': round(rem, 1), 'resets_in': 'Ready'},
+            {'name': 'Claude Sonnet 4.6', 'used_pct': 0.0, 'remaining_pct': 100.0, 'resets_in': 'Ready'},
+            {'name': 'GPT-OSS 120B', 'used_pct': 0.0, 'remaining_pct': 100.0, 'resets_in': 'Ready'}
+        ]
+    }
+
+    global_quota_path = Path.home() / ".gemini" / "antigravity" / "active_quota.json"
+    try:
+        global_quota_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(global_quota_path, 'w', encoding='utf-8') as f:
+            json.dump(quota_data, f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass
+
+    def _bg_fetch():
+        try:
+            fresh = quota_engine.fetch_quota_and_tier(token)
+            if fresh:
+                with open(global_quota_path, 'w', encoding='utf-8') as f:
+                    json.dump(fresh, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+    threading.Thread(target=_bg_fetch, daemon=True).start()
+
+    try:
+        if sys_name == 'windows':
+            appdata = Path(os.getenv("APPDATA", str(Path.home() / "AppData" / "Roaming")))
+            storage_path = appdata / "Antigravity" / "app_storage.json"
+        elif sys_name == 'macos':
+            storage_path = Path.home() / "Library" / "Application Support" / "Antigravity" / "app_storage.json"
+        else:
+            storage_path = Path.home() / ".config" / "Antigravity" / "app_storage.json"
+        storage_data = {}
+        if storage_path.exists():
+            with open(storage_path, 'r', encoding='utf-8') as f:
+                storage_data = json.load(f)
+        storage_data["antigravity:active_quota"] = json.dumps(quota_data)
+        storage_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(storage_path, 'w', encoding='utf-8') as f:
+            json.dump(storage_data, f, indent=2)
+    except Exception:
+        pass
+
     if not no_restart:
         restart_antigravity()
-    return {'success': True, 'account': account_key}
+    return {'success': True, 'account': account_key, 'quota': quota_data}
 
 def save_current_account():
     token = quota_engine.get_keychain_token()
@@ -157,6 +570,43 @@ def save_current_account():
     save_manifest(manifest)
     return {'success': True, 'email': email, 'tier': tier}
 
+def import_token(token_str):
+    if not token_str or not token_str.strip():
+        return {'success': False, 'error': 'توکن خالی است'}
+    token_str = token_str.strip()
+    quota_data = quota_engine.fetch_quota_and_tier(token_str)
+    if not quota_data:
+        acc_tok, ref_tok = quota_engine.parse_token_payload(token_str)
+        if not acc_tok and not ref_tok:
+            return {'success': False, 'error': 'فرمت توکن نامعتبر است'}
+        email = f'imported_{int(time.time())}@antigravity.ai'
+        tier = 'Google AI'
+        tier_code = 'pro'
+        rem = 100.0
+    else:
+        email = quota_data.get('email') or f'account_{int(time.time())}@gmail.com'
+        tier = quota_data.get('tier') or 'Free'
+        tier_code = quota_data.get('tier_code') or 'free'
+        rem = (quota_data.get('session', {}).get('remaining_pct') if quota_data else 100.0)
+
+    safe_name = "".join(c if c.isalnum() or c in ('@', '.', '_', '-') else '_' for c in email)
+    token_file = os.path.join(ACCOUNTS_DIR, f"{safe_name}.token")
+    with open(token_file, 'w', encoding='utf-8') as f:
+        f.write(token_str)
+
+    manifest = load_manifest()
+    manifest[email] = {
+        'label': email,
+        'email': email,
+        'tier': tier,
+        'tier_code': tier_code,
+        'remaining_pct': rem,
+        'token_file': token_file,
+        'saved_at': time.strftime('%Y-%m-%d %H:%M:%S')
+    }
+    save_manifest(manifest)
+    return {'success': True, 'email': email, 'tier': tier}
+
 def logout_account(no_restart=False):
     sys_name = quota_engine.get_current_system()
     if sys_name == 'windows':
@@ -172,6 +622,244 @@ def logout_account(no_restart=False):
     if not no_restart:
         restart_antigravity()
     return {'success': True}
+
+def delete_account(account_key):
+    m = load_manifest()
+    if account_key in m:
+        del m[account_key]
+        save_manifest(m)
+        return {'success': True}
+    return {'success': False, 'error': 'Account not found in list'}
+
+def find_free_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+
+def get_running_browser_profile(process_name="chrome.exe"):
+    try:
+        cmd = f'powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object {{ $_.Name -eq \'{process_name}\' -and $_.CommandLine -notmatch \'--type=\' }} | Select-Object -ExpandProperty CommandLine"'
+        out = subprocess.check_output(cmd, shell=True, text=True, timeout=4)
+        for line in out.splitlines():
+            if '--profile-directory=' in line:
+                import re
+                m = re.search(r'--profile-directory=["\']?([^"\']+)["\']?', line)
+                if m:
+                    return m.group(1).strip()
+    except Exception:
+        pass
+    return None
+
+def open_browser_url(url):
+    sys_name = quota_engine.get_current_system()
+    if sys_name == 'windows':
+        chrome_candidates = [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        ]
+        chrome_exe = next((p for p in chrome_candidates if os.path.exists(p)), None)
+        active_profile = get_running_browser_profile("chrome.exe")
+        
+        opened = False
+        if chrome_exe:
+            try:
+                cmd_args = [chrome_exe]
+                if active_profile:
+                    cmd_args.append(f'--profile-directory={active_profile}')
+                cmd_args.append(url)
+                subprocess.Popen(cmd_args)
+                opened = True
+            except Exception:
+                pass
+
+        try:
+            subprocess.Popen(['rundll32.exe', 'url.dll,FileProtocolHandler', url])
+            opened = True
+        except Exception:
+            pass
+
+        if not opened:
+            try:
+                subprocess.Popen(['explorer.exe', url])
+                opened = True
+            except Exception:
+                pass
+        return opened
+    elif sys_name == 'macos':
+        try:
+            subprocess.Popen(['open', url])
+            return True
+        except Exception:
+            pass
+    import webbrowser
+    try:
+        webbrowser.open(url)
+        return True
+    except Exception:
+        return False
+
+def run_google_oauth_flow(on_url=None, on_complete=None):
+    import urllib.parse
+    import urllib.request
+    import datetime
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+
+    save_current_account()
+
+    port = find_free_port()
+    redirect_uri = f"http://localhost:{port}/oauth2callback"
+    scope = "openid email profile https://www.googleapis.com/auth/cloud-platform"
+    params = {
+        "client_id": quota_engine.OAUTH_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": scope,
+        "access_type": "offline",
+        "prompt": "select_account consent"
+    }
+    auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
+    result = {'success': False, 'email': None, 'error': None}
+
+    if on_url:
+        try:
+            on_url(auth_url)
+        except Exception:
+            pass
+
+    class OAuthCallbackHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            parsed = urllib.parse.urlparse(self.path)
+            if parsed.path == '/oauth2callback':
+                qs = urllib.parse.parse_qs(parsed.query)
+                code = qs.get('code', [None])[0]
+                error = qs.get('error', [None])[0]
+                if error:
+                    result['error'] = f"Google OAuth error: {error}"
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'text/html; charset=utf-8')
+                    self.end_headers()
+                    self.wfile.write(b"<html><body style='background:#111;color:#fff;text-align:center;padding:50px;'><h2>Google Sign-in Canceled</h2></body></html>")
+                    return
+                if code:
+                    try:
+                        exchange_params = urllib.parse.urlencode({
+                            'client_id': quota_engine.OAUTH_CLIENT_ID,
+                            'client_secret': quota_engine.OAUTH_CLIENT_SECRET,
+                            'code': code,
+                            'grant_type': 'authorization_code',
+                            'redirect_uri': redirect_uri
+                        }).encode('utf-8')
+                        req = urllib.request.Request('https://oauth2.googleapis.com/token', data=exchange_params, headers={'User-Agent': 'Mozilla/5.0'})
+                        with urllib.request.urlopen(req, timeout=10.0) as resp:
+                            tok_data = json.loads(resp.read().decode('utf-8'))
+                        
+                        access_tok = tok_data.get('access_token')
+                        refresh_tok = tok_data.get('refresh_token')
+                        expires_in = tok_data.get('expires_in', 3600)
+                        
+                        exp_dt = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=expires_in)
+                        exp_iso = exp_dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+                        
+                        token_payload = {
+                            "token": {
+                                "access_token": access_tok,
+                                "token_type": tok_data.get("token_type", "Bearer"),
+                                "refresh_token": refresh_tok,
+                                "expiry": exp_iso
+                            },
+                            "auth_method": "consumer",
+                            "id_token": tok_data.get("id_token")
+                        }
+                        token_str = json.dumps(token_payload)
+                        
+                        quota_data = quota_engine.fetch_quota_and_tier(token_str)
+                        email = quota_data.get('email') if quota_data else None
+                        if not email:
+                            try:
+                                req_u = urllib.request.Request('https://www.googleapis.com/oauth2/v3/userinfo', headers={'Authorization': f'Bearer {access_tok}'})
+                                with urllib.request.urlopen(req_u, timeout=5.0) as resp_u:
+                                    u_info = json.loads(resp_u.read().decode('utf-8'))
+                                    email = u_info.get('email')
+                            except Exception:
+                                pass
+                        
+                        if not email:
+                            email = f"account_{int(time.time())}@gmail.com"
+                            
+                        tier = quota_data.get('tier') if quota_data else 'Google AI'
+                        tier_code = quota_data.get('tier_code') if quota_data else 'pro'
+                        rem = quota_data.get('session', {}).get('remaining_pct', 100.0) if quota_data else 100.0
+                        
+                        safe_name = "".join(c if c.isalnum() or c in ('@', '.', '_', '-') else '_' for c in email)
+                        token_file = os.path.join(ACCOUNTS_DIR, f"{safe_name}.token")
+                        with open(token_file, 'w', encoding='utf-8') as f:
+                            f.write(token_str)
+                            
+                        manifest = load_manifest()
+                        manifest[email] = {
+                            'label': email,
+                            'email': email,
+                            'tier': tier,
+                            'tier_code': tier_code,
+                            'remaining_pct': rem,
+                            'token_file': token_file,
+                            'saved_at': time.strftime('%Y-%m-%d %H:%M:%S')
+                        }
+                        save_manifest(manifest)
+                        
+                        result['success'] = True
+                        result['email'] = email
+                        result['tier'] = tier
+                        
+                        html = f"""<!DOCTYPE html>
+<html dir="rtl" lang="fa">
+<head>
+<meta charset="utf-8">
+<title>ورود موفقیت‌آمیز | Antigravity</title>
+<style>
+  body {{ background: #07090e; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+  .card {{ background: rgba(18, 24, 38, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 28px; padding: 44px 36px; text-align: center; max-width: 440px; box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6); }}
+  .icon {{ width: 68px; height: 68px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 22px; font-size: 34px; color: #10b981; }}
+  h2 {{ margin: 0 0 12px; font-size: 21px; font-weight: 700; color: #fff; }}
+  p {{ color: #94a3b8; font-size: 13.5px; margin: 0 0 24px; line-height: 1.7; }}
+  .badge {{ display: inline-block; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 9999px; padding: 7px 18px; font-size: 13px; font-weight: 600; direction: ltr; font-family: monospace; }}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">✓</div>
+  <h2>حساب گوگل با موفقیت متصل شد</h2>
+  <p>اکانت شما با موفقیت در منوی سوئیچر آنتی‌گرویتی ذخیره شد. اکنون می‌توانید این برگه را ببندید و به محیط کار بازگردید.</p>
+  <div class="badge">{email}</div>
+</div>
+</body>
+</html>"""
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'text/html; charset=utf-8')
+                        self.end_headers()
+                        self.wfile.write(html.encode('utf-8'))
+                    except Exception as e:
+                        result['error'] = str(e)
+                        self.send_response(500)
+                        self.send_header('Content-Type', 'text/html; charset=utf-8')
+                        self.end_headers()
+                        self.wfile.write(f"<html><body style='background:#111;color:#fff;text-align:center;padding:50px;'><h2>Error</h2><p>{e}</p></body></html>".encode('utf-8'))
+        def log_message(self, format, *args):
+            pass
+
+    httpd = HTTPServer(('127.0.0.1', port), OAuthCallbackHandler)
+    httpd.timeout = 180
+
+    open_browser_url(auth_url)
+
+    httpd.handle_request()
+    httpd.server_close()
+
+    if on_complete:
+        on_complete(result)
+
+    return result
 
 class SwitcherHTTPHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -196,10 +884,18 @@ class SwitcherHTTPHandler(SimpleHTTPRequestHandler):
             active = quota_engine.fetch_quota_and_tier()
             saved = load_manifest()
             convs = migration_engine.list_conversations()
+            projects = migration_engine.list_projects()
+            tasks = migration_engine.list_scheduled_tasks()
             payload = {
                 'activeAccount': active,
                 'savedAccounts': saved,
-                'conversations': convs
+                'conversations': convs,
+                'projects': projects,
+                'tasks': tasks,
+                'allowedConversations': {
+                    'instance_1': migration_engine.get_allowed_conversations('instance_1'),
+                    'instance_2': migration_engine.get_allowed_conversations('instance_2')
+                }
             }
             self.wfile.write(json.dumps(payload, ensure_ascii=False).encode('utf-8'))
         elif self.path == '/api/conversations':
@@ -208,6 +904,24 @@ class SwitcherHTTPHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             convs = migration_engine.list_conversations()
             self.wfile.write(json.dumps(convs, ensure_ascii=False).encode('utf-8'))
+        elif self.path == '/api/projects':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.end_headers()
+            projects = migration_engine.list_projects()
+            self.wfile.write(json.dumps(projects, ensure_ascii=False).encode('utf-8'))
+        elif self.path == '/api/tasks':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.end_headers()
+            tasks = migration_engine.list_scheduled_tasks()
+            self.wfile.write(json.dumps(tasks, ensure_ascii=False).encode('utf-8'))
+        elif self.path == '/api/dual_status':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.end_headers()
+            payload = {'instance2_running': is_instance2_running()}
+            self.wfile.write(json.dumps(payload, ensure_ascii=False).encode('utf-8'))
         else:
             super().do_GET()
 
@@ -220,6 +934,10 @@ class SwitcherHTTPHandler(SimpleHTTPRequestHandler):
         if self.path == '/api/switch':
             acc_key = data.get('accountKey')
             resp = switch_account(acc_key, no_restart=data.get('noRestart', False))
+        elif self.path == '/api/launch_dual':
+            acc_key = data.get('accountKey')
+            project_path = data.get('projectPath')
+            resp = launch_dual_instance(acc_key, project_path=project_path)
         elif self.path == '/api/save':
             resp = save_current_account()
         elif self.path == '/api/logout':
@@ -242,7 +960,40 @@ class SwitcherHTTPHandler(SimpleHTTPRequestHandler):
             mode = data.get('mode', 'copy')
             struct = data.get('structure', 'separate')
             dual = data.get('dualSync', False)
-            resp = migration_engine.migrate_conversations(conv_ids, src, tgt, mode=mode, structure=struct, dual_sync=dual)
+            p_id = data.get('projectId')
+            resp = migration_engine.migrate_conversations(conv_ids, src, tgt, mode=mode, structure=struct, dual_sync=dual, project_id=p_id)
+        elif self.path == '/api/project_assign':
+            p_id = data.get('projectId')
+            accs = data.get('accounts') or data.get('account', [])
+            enb = data.get('enabled')
+            sm = data.get('syncMode', 'shared')
+            resp = migration_engine.set_project_assignment(p_id, accs, sync_mode=sm, enabled=enb)
+        elif self.path == '/api/project_sync':
+            p_id = data.get('projectId')
+            t_acc = data.get('targetAccount')
+            inc_c = data.get('includeConversations', False)
+            resp = migration_engine.sync_project_to_account(p_id, t_acc, include_conversations=inc_c)
+        elif self.path == '/api/project_unlink':
+            p_id = data.get('projectId')
+            acc = data.get('account')
+            resp = migration_engine.unlink_project_from_account(p_id, acc)
+        elif self.path == '/api/task_isolate':
+            t_name = data.get('taskName') or data.get('name')
+            owner = data.get('ownerAccount') or (list(load_manifest().keys())[0] if load_manifest() else 'primary_account')
+            iso = data.get('isolateFromAccount2', data.get('isolate', True))
+            insts = data.get('allowedInstances')
+            req_acc = data.get('account') or data.get('callerAccount')
+            resp = migration_engine.set_task_isolation(t_name, owner, isolate_from_account2=iso, allowed_instances=insts, requesting_account=req_acc)
+        elif self.path == '/api/task_toggle':
+            t_name = data.get('taskName') or data.get('name')
+            enb = data.get('enable', data.get('enabled', True))
+            req_acc = data.get('account') or data.get('callerAccount')
+            resp = migration_engine.toggle_task_state(t_name, enable=enb, requesting_account=req_acc)
+        elif self.path == '/api/conversation_assign':
+            c_id = data.get('conversationId')
+            acc = data.get('account')
+            act = data.get('action', 'add')
+            resp = migration_engine.assign_conversation_account(c_id, acc, action=act)
 
         self.send_response(200)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
