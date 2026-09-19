@@ -51,14 +51,14 @@ def save_manifest(manifest):
 def restart_language_server():
     sys_name = quota_engine.get_current_system()
     if sys_name == 'windows':
-        subprocess.run(['powershell', '-NoProfile', '-Command', 'Get-Process -Name language_server -ErrorAction SilentlyContinue | Stop-Process -Force'], capture_output=True)
+        subprocess.run(['powershell', '-NoProfile', '-Command', 'Get-Process -Name language_server -ErrorAction SilentlyContinue | Stop-Process -Force'], capture_output=True, creationflags=0x08000000)
     elif sys_name == 'macos':
         subprocess.run(['pkill', '-9', '-f', 'language_server'], capture_output=True)
 
 def restart_antigravity():
     sys_name = quota_engine.get_current_system()
     if sys_name == 'windows':
-        subprocess.run(['powershell', '-NoProfile', '-Command', 'Get-Process -Name Antigravity, language_server -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue'], capture_output=True)
+        subprocess.run(['powershell', '-NoProfile', '-Command', 'Get-Process -Name Antigravity, language_server -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue'], capture_output=True, creationflags=0x08000000)
         time.sleep(1.2)
         paths = [
             os.path.expandvars(r"%LOCALAPPDATA%\Programs\antigravity\Antigravity.exe"),
@@ -71,7 +71,7 @@ def restart_antigravity():
             CREATE_NEW_PROCESS_GROUP = 0x00000200
             subprocess.Popen([exe], creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
         else:
-            subprocess.run(['powershell', '-NoProfile', '-Command', 'Start-Process Antigravity'], capture_output=True)
+            subprocess.run(['powershell', '-NoProfile', '-Command', 'Start-Process Antigravity'], capture_output=True, creationflags=0x08000000)
     elif sys_name == 'macos':
         subprocess.run(['pkill', '-9', '-f', '/Applications/Antigravity.app'], capture_output=True)
         subprocess.run(['pkill', '-9', '-f', 'language_server'], capture_output=True)

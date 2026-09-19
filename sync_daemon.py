@@ -400,6 +400,57 @@ def start_shared_oauth_flow():
 
     return auth_url_holder[0] if auth_url_holder else ""
 
+def get_account_profile_data(account_email, manifest=None):
+    if manifest is None:
+        try:
+            import server as srv
+            manifest = srv.load_manifest()
+        except Exception:
+            manifest = {}
+
+    target = account_email or PRIMARY_ACCOUNT
+    entry = manifest.get(target, {})
+    name = entry.get("name") or entry.get("label") or (target.split('@')[0].split('.')[0].capitalize() if target else "User")
+    avatar = entry.get("avatar", "")
+    tier = entry.get("tier", "Google AI Pro")
+    tier_code = entry.get("tier_code", "pro")
+    remaining_pct = entry.get("remaining_pct", 100)
+
+    acc_data = {
+        "email": target,
+        "name": name,
+        "avatar": avatar,
+        "tier": tier,
+        "tier_code": tier_code,
+        "session": {
+            "name": "Gemini 3.8 Flash High",
+            "used_pct": round(100 - remaining_pct, 1),
+            "remaining_pct": remaining_pct,
+            "resets_in": "4 hr"
+        }
+    }
+
+    if entry.get("quota") and isinstance(entry["quota"], dict):
+        acc_data.update(entry["quota"])
+        if avatar and not acc_data.get("avatar"):
+            acc_data["avatar"] = avatar
+        return acc_data
+
+    tf = entry.get("token_file")
+    if tf and os.path.exists(tf):
+        try:
+            with open(tf, 'r', encoding='utf-8') as f_tok:
+                tok_str = f_tok.read().strip()
+            q = quota_engine.fetch_quota_and_tier(tok_str)
+            if q and isinstance(q, dict) and q.get("email") == target:
+                acc_data.update(q)
+                if avatar and not acc_data.get("avatar"):
+                    acc_data["avatar"] = avatar
+        except Exception:
+            pass
+
+    return acc_data
+
 class QuotaHttpHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
@@ -449,46 +500,37 @@ class QuotaHttpHandler(BaseHTTPRequestHandler):
                 self.send_header('Connection', 'close')
                 self.end_headers()
                 self.wfile.write(b'{"status":"opened"}')
-            elif self.path in ('/api/state', '/api/accounts'):
+            elif self.path.startswith('/api/state') or self.path.startswith('/api/accounts'):
                 # Return active account, saved accounts manifest, and conversations
+                import urllib.parse
+                parsed_url = urllib.parse.urlparse(self.path)
+                query_params = urllib.parse.parse_qs(parsed_url.query)
+                req_inst = query_params.get('instance', [None])[0]
+                req_acc = query_params.get('account', [None])[0]
+
                 resp_data = {'activeAccount': None, 'savedAccounts': {}, 'conversations': []}
                 try:
-                    import quota_engine as q_eng
+                    import server as srv
                     import migration_engine as m_eng
-                    global _cached_account_info, _cached_account_time
-                    now = time.time()
-                    force = 'force=true' in self.path.lower()
-                    if not force and '_cached_account_info' in globals() and _cached_account_info and (now - _cached_account_time < 30):
-                        resp_data['activeAccount'] = _cached_account_info
-                    elif GLOBAL_QUOTA_PATH.exists():
-                        try:
-                            with open(GLOBAL_QUOTA_PATH, 'r', encoding='utf-8') as f_q:
-                                resp_data['activeAccount'] = json.load(f_q)
-                                _cached_account_info = resp_data['activeAccount']
-                                _cached_account_time = now
-                        except Exception:
-                            pass
-                    elif hasattr(q_eng, 'fetch_quota_and_tier'):
-                        _cached_account_info = q_eng.fetch_quota_and_tier()
-                        _cached_account_time = now
-                        resp_data['activeAccount'] = _cached_account_info
+                    manifest = srv.load_manifest()
+                    resp_data['savedAccounts'] = manifest
+
+                    if req_inst == 'instance_2' or (req_acc and m_eng.is_account2(req_acc)):
+                        target_acc = SECONDARY_ACCOUNT
+                    else:
+                        target_acc = PRIMARY_ACCOUNT
+
+                    resp_data['activeAccount'] = get_account_profile_data(target_acc, manifest)
+                    resp_data['instanceId'] = req_inst or ('instance_2' if target_acc == SECONDARY_ACCOUNT else 'instance_1')
                     resp_data['conversations'] = m_eng.list_conversations() if hasattr(m_eng, 'list_conversations') else []
                     resp_data['projects'] = m_eng.list_projects() if hasattr(m_eng, 'list_projects') else []
-                    resp_data['tasks'] = m_eng.list_scheduled_tasks() if hasattr(m_eng, 'list_scheduled_tasks') else []
+                    resp_data['tasks'] = m_eng.list_scheduled_tasks(account=target_acc) if hasattr(m_eng, 'list_scheduled_tasks') else []
                     resp_data['allowedConversations'] = {
                         'instance_1': m_eng.get_allowed_conversations('instance_1') if hasattr(m_eng, 'get_allowed_conversations') else [],
                         'instance_2': m_eng.get_allowed_conversations('instance_2') if hasattr(m_eng, 'get_allowed_conversations') else []
                     }
                 except Exception as e:
                     pass
-                
-                man_path = Path.home() / ".gemini" / "accounts" / "manifest.json"
-                if man_path.exists():
-                    try:
-                        with open(man_path, 'r', encoding='utf-8') as f:
-                            resp_data['savedAccounts'] = json.load(f)
-                    except Exception:
-                        pass
 
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json; charset=utf-8')
@@ -715,24 +757,9 @@ async def cdp_broadcast_state(ws, extra_toast=None, instance_id="instance_1", ac
         import migration_engine as m_eng
         manifest = srv.load_manifest()
 
-        actual_account = account_email or (SECONDARY_ACCOUNT if instance_id == "instance_2" else PRIMARY_ACCOUNT)
-
-        active_acc = None
-        if instance_id == "instance_1":
-            token = quota_engine.get_keychain_token()
-            if token:
-                active_acc = quota_engine.fetch_quota_and_tier(token)
-        else:
-            if actual_account in manifest and manifest[actual_account].get("quota"):
-                active_acc = manifest[actual_account]["quota"]
-            elif actual_account in manifest:
-                active_acc = {
-                    "email": actual_account,
-                    "name": manifest[actual_account].get("name", "Account 2"),
-                    "tier": "Google AI Pro",
-                    "tier_code": "pro",
-                    "session": {"used_pct": 0, "remaining_pct": 100, "resets_in": "4 hr"}
-                }
+        target_account = SECONDARY_ACCOUNT if (instance_id == "instance_2" or (account_email and m_eng.is_account2(account_email))) else PRIMARY_ACCOUNT
+        actual_account = target_account
+        active_acc = get_account_profile_data(target_account, manifest)
 
         conversations = m_eng.list_conversations() if hasattr(m_eng, 'list_conversations') else []
         projects = m_eng.list_projects() if hasattr(m_eng, 'list_projects') else []

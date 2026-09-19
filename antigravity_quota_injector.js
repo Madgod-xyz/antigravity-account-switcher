@@ -2730,9 +2730,38 @@
 
   window.__onSwitcherStateUpdate = function(data) {
     if (!data) return;
-    if (data.activeAccount) {
+    const isInst2 = isInstance2Window();
+
+    // If payload has instanceId and doesn't match this window, ignore activeAccount
+    const instMismatch = (data.instanceId && ((isInst2 && data.instanceId !== 'instance_2') || (!isInst2 && data.instanceId !== 'instance_1')));
+
+    if (data.savedAccounts) swState.savedAccounts = data.savedAccounts;
+    if (data.conversations) swState.conversations = data.conversations;
+    if (data.projects) swState.projects = data.projects;
+    if (data.tasks) swState.tasks = data.tasks;
+    if (data.allowedConversations) {
+      swState.allowedConversations = data.allowedConversations;
+      try {
+        localStorage.setItem('antigravity:allowed_conversations', JSON.stringify(data.allowedConversations));
+      } catch(e) {}
+    }
+
+    if (data.activeAccount && !instMismatch) {
       const prevAcc = swState.activeAccount || {};
-      const newAcc = { ...data.activeAccount };
+      let newAcc = { ...data.activeAccount };
+
+      // Ensure instance 2 never takes instance 1's email, and vice versa
+      if (isInst2 && !isAccount2(newAcc.email)) {
+        const acc2Key = Object.keys(swState.savedAccounts || {}).find(e => isAccount2(e));
+        if (acc2Key && swState.savedAccounts[acc2Key]) {
+          newAcc = { ...swState.savedAccounts[acc2Key] };
+        }
+      } else if (!isInst2 && isAccount2(newAcc.email)) {
+        const acc1Key = Object.keys(swState.savedAccounts || {}).find(e => !isAccount2(e));
+        if (acc1Key && swState.savedAccounts[acc1Key]) {
+          newAcc = { ...swState.savedAccounts[acc1Key] };
+        }
+      }
 
       // Never downgrade an active pro/ultra tier to free on transient network updates
       if ((!newAcc.tier_code || newAcc.tier_code === 'free') && (prevAcc.tier_code === 'pro' || prevAcc.tier_code === 'ultra' || prevAcc.tier_code === 'enterprise')) {
@@ -2754,16 +2783,7 @@
         localStorage.setItem('antigravity:active_quota', JSON.stringify(newAcc));
       } catch(e) {}
     }
-    if (data.savedAccounts) swState.savedAccounts = data.savedAccounts;
-    if (data.conversations) swState.conversations = data.conversations;
-    if (data.projects) swState.projects = data.projects;
-    if (data.tasks) swState.tasks = data.tasks;
-    if (data.allowedConversations) {
-      swState.allowedConversations = data.allowedConversations;
-      try {
-        localStorage.setItem('antigravity:allowed_conversations', JSON.stringify(data.allowedConversations));
-      } catch(e) {}
-    }
+
     swState.isLoaded = true;
     swState.isLoading = false;
     try {
@@ -2780,7 +2800,8 @@
   window.__showSwitcherToast = showSwitcherToast;
 
   function fetchSwitcherState(cb) {
-    fetch('http://127.0.0.1:39281/api/state')
+    const inst = isInstance2Window() ? 'instance_2' : 'instance_1';
+    fetch(`http://127.0.0.1:39281/api/state?instance=${inst}`)
       .then(r => r.json())
       .then(data => {
         window.__onSwitcherStateUpdate(data);
@@ -2891,15 +2912,27 @@
     const dir = isFa ? 'rtl' : 'ltr';
     const fontFamily = "'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
+    const isInst2 = isInstance2Window();
     const activeAcc = swState.activeAccount || currentUsage || {};
-    let email = activeAcc.email || (window.__antigravity_quota && window.__antigravity_quota.email) || (currentUsage && currentUsage.email) || window.__antigravity_account || localStorage.getItem('antigravity:account_email') || '';
-    if (isInstance2Window()) {
-      if (!email || email === 'developer@antigravity.ai') {
-        email = window.__antigravity_account || localStorage.getItem('antigravity:account_email') || 'account2@example.com';
+    let email = activeAcc.email;
+    if (isInst2) {
+      if (!email || !isAccount2(email)) {
+        const acc2Key = Object.keys(swState.savedAccounts || {}).find(e => isAccount2(e)) || 'bombhub.apk@gmail.com';
+        email = acc2Key;
+        if (swState.savedAccounts && swState.savedAccounts[acc2Key]) {
+          Object.assign(activeAcc, swState.savedAccounts[acc2Key]);
+        }
       }
-    } else if (!email || email === 'developer@antigravity.ai') {
-      email = window.__antigravity_account || localStorage.getItem('antigravity:account_email') || 'account1@example.com';
+    } else {
+      if (!email || isAccount2(email)) {
+        const acc1Key = Object.keys(swState.savedAccounts || {}).find(e => !isAccount2(e)) || 'madgod.cum@gmail.com';
+        email = acc1Key;
+        if (swState.savedAccounts && swState.savedAccounts[acc1Key]) {
+          Object.assign(activeAcc, swState.savedAccounts[acc1Key]);
+        }
+      }
     }
+    if (!email) email = isInst2 ? 'account2@example.com' : 'account1@example.com';
     let cleanDisplayName = (typeof getCleanUserDisplayName === 'function') 
       ? getCleanUserDisplayName(activeAcc.name, email) 
       : ((email ? email.split('@')[0].split('.')[0] : 'User'));
@@ -4020,14 +4053,30 @@
     accPill.style.cursor = 'pointer';
     accPill.style.userSelect = 'none';
     accPill.style.transition = 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)';
+    const isInst2 = isInstance2Window();
     const accUser = swState.activeAccount || currentUsage || {};
-    let accEmail = accUser.email || (window.__antigravity_quota && window.__antigravity_quota.email) || (currentUsage && currentUsage.email) || window.__antigravity_account || localStorage.getItem('antigravity:account_email') || '';
-    if (accEmail === 'developer@antigravity.ai' || !accEmail) {
-      accEmail = window.__antigravity_account || localStorage.getItem('antigravity:account_email') || (isInstance2Window() ? 'account2@example.com' : 'account1@example.com');
+    let accEmail = accUser.email;
+    if (isInst2) {
+      if (!accEmail || !isAccount2(accEmail)) {
+        const acc2Key = Object.keys(swState.savedAccounts || {}).find(e => isAccount2(e)) || 'bombhub.apk@gmail.com';
+        accEmail = acc2Key;
+        if (swState.savedAccounts && swState.savedAccounts[acc2Key]) {
+          Object.assign(accUser, swState.savedAccounts[acc2Key]);
+        }
+      }
+    } else {
+      if (!accEmail || isAccount2(accEmail)) {
+        const acc1Key = Object.keys(swState.savedAccounts || {}).find(e => !isAccount2(e)) || 'madgod.cum@gmail.com';
+        accEmail = acc1Key;
+        if (swState.savedAccounts && swState.savedAccounts[acc1Key]) {
+          Object.assign(accUser, swState.savedAccounts[acc1Key]);
+        }
+      }
     }
+    if (!accEmail) accEmail = isInst2 ? 'account2@example.com' : 'account1@example.com';
     let accName = getCleanUserDisplayName(accUser.name, accEmail);
     if (accName.toLowerCase() === 'developer') {
-      accName = isInstance2Window() ? 'Account 2' : 'Account 1';
+      accName = isInst2 ? 'Account 2' : 'Account 1';
     }
 
     // Multi-tier avatar lookup with persistence

@@ -716,13 +716,31 @@ def save_task_manifest(manifest):
         except Exception:
             return False
 
-def discover_windows_scheduled_tasks():
+_tasks_cache = {}
+_tasks_cache_time = 0
+
+def discover_windows_scheduled_tasks(force=False):
     """Query live Windows Scheduled Tasks matching agent or developer keywords."""
+    global _tasks_cache, _tasks_cache_time
+    now = time.time()
+    if not force and _tasks_cache and (now - _tasks_cache_time < 60):
+        return _tasks_cache
+
     tasks = {}
     ignore_prefixes = ['microsoft\\', 'asus\\', 'agent activation runtime', 'adobe\\', 'google\\']
     try:
         cmd = ['schtasks', '/query', '/fo', 'csv', '/nh']
-        res = subprocess.run(cmd, capture_output=True, text=True, errors='ignore')
+        kwargs = {'capture_output': True, 'text': True, 'errors': 'ignore'}
+        if platform.system().lower() == 'windows':
+            kwargs['creationflags'] = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
+            try:
+                si = subprocess.STARTUPINFO()
+                si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                si.wShowWindow = subprocess.SW_HIDE
+                kwargs['startupinfo'] = si
+            except Exception:
+                pass
+        res = subprocess.run(cmd, **kwargs)
         for line in res.stdout.strip().split('\n'):
             line = line.strip()
             if not line:
@@ -743,6 +761,8 @@ def discover_windows_scheduled_tasks():
                     "status": status,
                     "enabled": (status.lower() != "disabled")
                 }
+        _tasks_cache = tasks
+        _tasks_cache_time = now
     except Exception:
         pass
     return tasks
@@ -875,7 +895,17 @@ def toggle_task_state(task_name, enable=True, requesting_account=None):
     action_flag = '/enable' if enable else '/disable'
     try:
         cmd = ['schtasks', '/change', '/tn', task_name, action_flag]
-        res = subprocess.run(cmd, capture_output=True, text=True)
+        kwargs = {'capture_output': True, 'text': True}
+        if platform.system().lower() == 'windows':
+            kwargs['creationflags'] = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
+            try:
+                si = subprocess.STARTUPINFO()
+                si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                si.wShowWindow = subprocess.SW_HIDE
+                kwargs['startupinfo'] = si
+            except Exception:
+                pass
+        res = subprocess.run(cmd, **kwargs)
         if res.returncode != 0 and 'ERROR' in res.stderr:
             pass
     except Exception:
