@@ -2550,6 +2550,15 @@
     return false;
   }
 
+  function isAccount2(email) {
+    if (!email) return false;
+    const norm = String(email).toLowerCase().trim();
+    if (norm === 'instance_2' || norm === 'secondary_account' || norm.includes('bombhub') || norm.includes('account2')) return true;
+    const sec = (typeof swState !== 'undefined' && swState.savedAccounts && Object.keys(swState.savedAccounts).length > 1) ? Object.keys(swState.savedAccounts)[1] : null;
+    if (sec && norm === sec.toLowerCase().trim()) return true;
+    return false;
+  }
+
   let swState = {
     activeAccount: (() => {
       try {
