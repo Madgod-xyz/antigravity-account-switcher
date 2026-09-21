@@ -11,8 +11,14 @@
 > Crafted with Apple iOS Liquid Glass aesthetics, fluid 60fps spring physics, and multi-language support (English, Spanish, Persian, Chinese).
 
 <p align="center">
-  <img src="assets/promo_banner.jpg" alt="Antigravity Account Switcher Banner" width="100%" style="border-radius: 16px; box-shadow: 0 12px 36px rgba(0,0,0,0.6);" />
+  <a href="assets/teaser.mp4">
+    <img src="assets/teaser.gif" alt="Antigravity Account Switcher Launch Teaser" width="100%" style="border-radius: 16px; box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 40px rgba(0, 240, 255, 0.25);" />
+  </a>
 </p>
+<p align="center">
+  <em>⚡️ <b>Watch the Official Launch Teaser</b>: 1-Click Identity Swap, Concurrent Dual IDE Instances & Scheduled Task Isolation. (<a href="assets/teaser.mp4">HD Video with Sound</a>)</em>
+</p>
+
 
 ---
 
