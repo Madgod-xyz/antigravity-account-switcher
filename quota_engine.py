@@ -694,18 +694,20 @@ def fetch_quota():
     if not data:
         return None
     session = data.get('session') or {}
+    weekly = data.get('weekly') or {
+        'name': 'Weekly Limit',
+        'remaining_pct': session.get('remaining_pct', 100.0),
+        'used_pct': session.get('used_pct', 0.0),
+        'resets_in': 'Ready'
+    }
     return {
         'email': data.get('email', 'Unknown'),
         'name': data.get('name', 'User'),
         'avatar': data.get('avatar', ''),
-        'tier': data.get('tier', 'Free'),
-        'tier_code': data.get('tier_code', 'free'),
+        'tier': data.get('tier', 'Google AI Pro'),
+        'tier_code': data.get('tier_code', 'pro'),
         'session': session,
-        'weekly': {
-            'remaining_pct': session.get('remaining_pct', 95.0),
-            'used_pct': session.get('used_pct', 5.0),
-            'resets_in': '4 days, 12 hours'
-        },
+        'weekly': weekly,
         'pools': data.get('pools', [])
     }
 

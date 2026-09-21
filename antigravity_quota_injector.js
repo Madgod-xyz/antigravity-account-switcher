@@ -41,15 +41,17 @@
   }
 
   function isInstance2Window() {
-    if (window.__antigravity_instance === 'instance_2') return true;
+    if (window.__antigravity_instance && window.__antigravity_instance !== 'instance_1') return true;
     if (window.__antigravity_instance === 'instance_1') return false;
     try {
-      if (localStorage.getItem('antigravity:instance_id') === 'instance_2') return true;
-      if (localStorage.getItem('antigravity:instance_id') === 'instance_1') return false;
+      const lsInst = localStorage.getItem('antigravity:instance_id');
+      if (lsInst && lsInst !== 'instance_1') return true;
+      if (lsInst === 'instance_1') return false;
     } catch(e) {}
     if (window.__antigravity_accounts) {
-      if (window.__antigravity_accounts.instanceId === 'instance_2' || window.__antigravity_accounts.instance_id === 'instance_2') return true;
-      if (window.__antigravity_accounts.instanceId === 'instance_1' || window.__antigravity_accounts.instance_id === 'instance_1') return false;
+      const aInst = window.__antigravity_accounts.instanceId || window.__antigravity_accounts.instance_id;
+      if (aInst && aInst !== 'instance_1') return true;
+      if (aInst === 'instance_1') return false;
     }
     return false;
   }
@@ -749,14 +751,20 @@
     try {
       window.__antigravity_user_settings = Object.assign({}, window.__antigravity_user_settings || {}, patch);
     } catch(e) {}
+    const instId = (typeof window !== 'undefined' && window.__antigravity_instance) || (isInstance2Window() ? 'instance_2' : 'instance_1');
+    const accEmail = (typeof window !== 'undefined' && window.__antigravity_account) || null;
+    const payload = Object.assign({}, patch, {
+      instance_id: instId,
+      account: accEmail
+    });
     try {
-      callDaemonIpc('save_user_settings', patch);
+      callDaemonIpc('save_user_settings', payload);
     } catch(e) {}
     try {
       fetch('http://127.0.0.1:39281/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch)
+        body: JSON.stringify(payload)
       }).catch(() => {});
     } catch(e) {}
   }
@@ -1279,24 +1287,38 @@
 
           groups.forEach(g => {
             const gName = g.displayName || '';
-            const weeklyBucket = (g.buckets || []).find(b => b.displayName?.includes('Weekly'));
-            const sessionBucket = (g.buckets || []).find(b => b.displayName?.includes('Five Hour') || b.displayName?.includes('5-Hour'));
+            const weeklyBucket = (g.buckets || []).find(b => b.window === 'weekly' || b.bucketId?.toLowerCase().includes('weekly') || b.displayName?.toLowerCase().includes('weekly'));
+            const sessionBucket = (g.buckets || []).find(b => b.window === '5h' || b.bucketId?.toLowerCase().includes('5h') || b.displayName?.toLowerCase().includes('hour') || b.displayName?.toLowerCase().includes('five'));
 
-            const wRem = weeklyBucket?.remaining?.value ?? weeklyBucket?.remainingFraction ?? 1.0;
-            const sRem = sessionBucket?.remaining?.value ?? sessionBucket?.remainingFraction ?? 1.0;
+            const wRem = weeklyBucket?.remainingFraction ?? weeklyBucket?.remaining?.value ?? 1.0;
+            const sRem = sessionBucket?.remainingFraction ?? sessionBucket?.remaining?.value ?? 1.0;
             const sDesc = sessionBucket?.description || '';
             const wDesc = weeklyBucket?.description || '';
 
-            let resetsIn = 'Ready to reset';
+            let resetsIn = 'Ready';
             const m = sDesc.match(/in\s+([0-9]+\s+[a-zA-Z]+(?:\s*,\s*[0-9]+\s+[a-zA-Z]+)?)/i);
             if (m) {
               resetsIn = m[1].replace(/hours?/gi, 'hr').replace(/minutes?/gi, 'min').replace(/days?/gi, 'd');
+            } else if (sessionBucket?.resetTime) {
+              try {
+                const diff = Math.max(0, Math.floor((new Date(sessionBucket.resetTime).getTime() - Date.now()) / 1000));
+                const h = Math.floor(diff / 3600);
+                const mn = Math.floor((diff % 3600) / 60);
+                resetsIn = h > 0 ? `${h}hr ${mn}min` : `${mn}min`;
+              } catch(e) {}
             }
 
-            let wResetsIn = '2d, 19hr';
+            let wResetsIn = 'Ready';
             const mw = wDesc.match(/in\s+([0-9]+\s+[a-zA-Z]+(?:\s*,\s*[0-9]+\s+[a-zA-Z]+)?)/i);
             if (mw) {
               wResetsIn = mw[1].replace(/hours?/gi, 'hr').replace(/minutes?/gi, 'min').replace(/days?/gi, 'd');
+            } else if (weeklyBucket?.resetTime) {
+              try {
+                const diff = Math.max(0, Math.floor((new Date(weeklyBucket.resetTime).getTime() - Date.now()) / 1000));
+                const d = Math.floor(diff / 86400);
+                const h = Math.floor((diff % 86400) / 3600);
+                wResetsIn = d > 0 ? `${d}d ${h}hr` : `${h}hr`;
+              } catch(e) {}
             }
 
             const poolObj = {
@@ -1313,7 +1335,7 @@
 
             pools.push(poolObj);
 
-            if (gName.includes('Gemini')) {
+            if (gName.toLowerCase().includes('gemini')) {
               geminiSession = {
                 name: gName,
                 used_pct: poolObj.used_pct,
@@ -1362,7 +1384,7 @@
 
     try {
       // Always fetch from daemon first (most reliable, per-instance)
-      const instParam = isInstance2Window() ? 'instance_2' : 'instance_1';
+      const instParam = (typeof window !== 'undefined' && window.__antigravity_instance) || (isInstance2Window() ? 'instance_2' : 'instance_1');
       let daemonData = null;
       try {
         const res = await fetch(`http://127.0.0.1:39281/sync?instance=${instParam}`);
@@ -2736,13 +2758,20 @@
   };
 
   function isInstance2Window() {
-    if (window.__antigravity_instance === 'instance_2') return true;
+    if (window.__antigravity_instance && window.__antigravity_instance !== 'instance_1') return true;
+    if (window.__antigravity_instance === 'instance_1') return false;
     try {
-      if (localStorage.getItem('antigravity:instance_id') === 'instance_2') return true;
+      const lsInst = localStorage.getItem('antigravity:instance_id');
+      if (lsInst && lsInst !== 'instance_1') return true;
+      if (lsInst === 'instance_1') return false;
       const acc = localStorage.getItem('antigravity:account_email');
-      if (acc && (acc.toLowerCase().includes('instance2') || acc === 'instance_2')) return true;
+      if (acc && (acc.toLowerCase().includes('instance2') || acc.toLowerCase().includes('instance3') || acc.startsWith('instance_'))) return true;
     } catch(e) {}
-    if (window.__antigravity_accounts && (window.__antigravity_accounts.instanceId === 'instance_2' || window.__antigravity_accounts.instance_id === 'instance_2')) return true;
+    if (window.__antigravity_accounts) {
+      const aInst = window.__antigravity_accounts.instanceId || window.__antigravity_accounts.instance_id;
+      if (aInst && aInst !== 'instance_1') return true;
+      if (aInst === 'instance_1') return false;
+    }
     return false;
   }
 
@@ -3023,8 +3052,9 @@
   window.__showSwitcherToast = showSwitcherToast;
 
   function fetchSwitcherState(cb) {
-    const inst = isInstance2Window() ? 'instance_2' : 'instance_1';
-    fetch(`http://127.0.0.1:39281/api/state?instance=${inst}`)
+    const inst = (typeof window !== 'undefined' && window.__antigravity_instance) || (isInstance2Window() ? 'instance_2' : 'instance_1');
+    const acc = (typeof window !== 'undefined' && window.__antigravity_account) || '';
+    fetch(`http://127.0.0.1:39281/api/state?instance=${encodeURIComponent(inst)}&account=${encodeURIComponent(acc)}`)
       .then(r => r.json())
       .then(data => {
         window.__onSwitcherStateUpdate(data);
@@ -3394,9 +3424,15 @@
                             <button class="aqm-sw-btn aqm-sw-btn-primary" data-action="switch" data-acc="${k}" style="padding:3px 10px;font-size:11px;">
                               <span>${t.switchNow || (isFa ? 'سوئیچ' : 'Switch')}</span>
                             </button>
-                            <button class="aqm-sw-btn" data-action="launch-dual" data-acc="${k}" data-account="${k}" data-email="${accEmailStr}" title="${t.launchDualTitle || 'Open concurrently in 2nd Antigravity Window'}" style="padding:3px 8px;font-size:11px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;display:inline-flex;align-items:center;gap:3px;cursor:pointer;">
-                              <span>${t.launchDual || '⚡️ 2nd Window'}</span>
-                            </button>
+                            ${(() => {
+                              const runningAccs = Object.values(swState.runningAccounts || {});
+                              const isWinRunning = runningAccs.includes(k) || runningAccs.includes(accEmailStr);
+                              return `
+                                <button class="aqm-sw-btn" data-action="launch-dual" data-acc="${k}" data-account="${k}" data-email="${accEmailStr}" title="${isWinRunning ? (isFa ? 'انتقال به پنجره باز این حساب' : 'Focus window of this account') : (isFa ? 'باز کردن در پنجره همزمان مجزا' : 'Open concurrently in separate window')}" style="padding:3px 8px;font-size:11px;background:${isWinRunning ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)'};border:1px solid ${isWinRunning ? 'rgba(16,185,129,0.4)' : 'rgba(59,130,246,0.3)'};color:${isWinRunning ? '#34d399' : '#60a5fa'};display:inline-flex;align-items:center;gap:3px;cursor:pointer;">
+                                  <span>${isWinRunning ? '🪟 ' + (isFa ? 'فوکوس پنجره' : 'Focus Window') : '⚡️ ' + (isFa ? 'پنجره جدید' : 'New Window')}</span>
+                                </button>
+                              `;
+                            })()}
                           `}
                           <button class="aqm-sw-btn" data-action="delete" data-acc="${k}" title="${t.deleteAccount || (isFa ? 'حذف از لیست' : 'Delete')}" style="padding:3px 7px;font-size:10.5px;color:#94a3b8;border-color:transparent;background:transparent;">
                             <span>✕</span>
@@ -3853,9 +3889,10 @@
         btn.disabled = true;
         setTimeout(() => { try { btn.disabled = false; } catch(err){} }, 3000);
 
-        showSwitcherToast(t.dualLaunching || (isFa ? 'در حال اجرای پنجره دوم آنتی‌گرویتی...' : 'Launching 2nd Antigravity instance...'));
+        showSwitcherToast(t.dualLaunching || (isFa ? 'در حال اجرای پنجره آنتی‌گرویتی...' : 'Launching Antigravity instance...'));
 
         if (callDaemonIpc('launch_dual', { accountKey: accKey })) {
+          setTimeout(() => { fetchSwitcherState(() => { renderSwitcherModal(); }); }, 1500);
           return;
         }
 
@@ -3885,7 +3922,8 @@
             return;
           }
           if (res && res.success) {
-            showSwitcherToast(res.msg || t.dualLaunched || (isFa ? 'پنجره دوم با موفقیت اجرا شد!' : '2nd instance started successfully!'));
+            showSwitcherToast(res.msg || t.dualLaunched || (isFa ? 'پنجره آنتی‌گرویتی با موفقیت فعال شد!' : 'Antigravity instance started successfully!'));
+            fetchSwitcherState(() => { renderSwitcherModal(); });
           } else if (res && res.error) {
             showSwitcherToast(res.error, true);
           }

@@ -104,6 +104,8 @@ function handlePayload(data) {
   state.conversations = data.conversations || [];
   state.projects = data.projects || [];
   state.tasks = data.tasks || [];
+  state.runningInstances = data.runningInstances || [];
+  state.runningAccounts = data.runningAccounts || {};
   renderAll();
 }
 
@@ -431,9 +433,15 @@ function renderSavedAccounts() {
             <span>⚡️</span>
             <span>${t('switchNow')}</span>
           </button>
-          <button class="btn btn-glass" style="padding: 6px 10px; font-size: 12px; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); color:#93c5fd;" title="${t('launchDualTitle')}" onclick="executeLaunchDual('${key}')">
-            <span>⚡️ 2nd</span>
-          </button>
+          ${(() => {
+            const runningAccs = Object.values(state.runningAccounts || {});
+            const isRunning = runningAccs.includes(key) || (acc.email && runningAccs.includes(acc.email));
+            return `
+              <button class="btn btn-glass" style="padding: 6px 10px; font-size: 12px; background:${isRunning ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.12)'}; border:1px solid ${isRunning ? 'rgba(16,185,129,0.4)' : 'rgba(59,130,246,0.3)'}; color:${isRunning ? '#34d399' : '#93c5fd'};" title="${isRunning ? (t('focusWindow') || 'Focus running window') : t('launchDualTitle')}" onclick="executeLaunchDual('${key}')">
+                <span>${isRunning ? '🪟' : '⚡️ Window'}</span>
+              </button>
+            `;
+          })()}
         ` : ''}
 
         <button class="btn btn-ghost-danger" style="padding: 6px 8px; font-size: 12px;" title="Delete" onclick="deleteAccount('${key}')">
