@@ -5,7 +5,7 @@
 [![Antigravity](https://img.shields.io/badge/Antigravity-2.0%2B-cyan.svg)]()
 [![UI Design](https://img.shields.io/badge/Design-iOS%20Liquid%20Glass-purple.svg)]()
 [![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20ES%20%7C%20FA%20%7C%20ZH-orange.svg)]()
-[![Developed by](https://img.shields.io/badge/Developed%20by-Madgod--xyz-blueviolet.svg)](https://github.com/Madgod-xyz)
+[![Organization](https://img.shields.io/badge/Organization-mad--helpers-blueviolet.svg)](https://github.com/mad-helpers)
 
 > **Super-fast 1-click Google Account Switcher, Concurrent Dual-Instance Runner, Real-Time Quota HUD, and AI Project & Chat Migration Suite for Google Antigravity.**  
 > Crafted with Apple iOS Liquid Glass aesthetics, fluid 60fps spring physics, and multi-language support (English, Spanish, Persian, Chinese).
@@ -39,14 +39,14 @@
 ### 🪟 Windows 10 & 11 (PowerShell)
 Open PowerShell as your standard user and run:
 ```powershell
-irm https://raw.githubusercontent.com/Madgod-xyz/antigravity-account-switcher/master/install.ps1 | iex
+irm https://raw.githubusercontent.com/mad-helpers/antigravity-account-switcher/master/install.ps1 | iex
 ```
 *Creates `Antigravity Switcher` shortcuts on your Desktop & Start Menu, installs background sync daemons, and registers `agy-switch` in your PATH.*
 
 ### 🍏 macOS (Apple Silicon M1/M2/M3/M4 & Intel)
 Open Terminal and run:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Madgod-xyz/antigravity-account-switcher/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/mad-helpers/antigravity-account-switcher/master/install.sh | bash
 ```
 *Builds and installs `AntigravitySwitcher.app` in `/Applications` and `~/Desktop`, and links `agy-switch` into your PATH.*
 
@@ -57,7 +57,7 @@ curl -fsSL https://raw.githubusercontent.com/Madgod-xyz/antigravity-account-swit
 ### Overview
 Switching between multiple Google accounts on **Google Antigravity** can be tedious and disruptive because session credentials are bound inside **Windows Credential Manager** (`service: "gemini"`, `account: "antigravity"`) or **macOS Keychain**.
 
-**Antigravity Account Switcher & Migration Suite** by **[Madgod-xyz](https://github.com/Madgod-xyz)** is a high-performance native cross-platform solution (GUI, in-editor HUD pill, and CLI). It allows you to swap identities in under 3 seconds **or** run two completely isolated Antigravity instances side-by-side on the same machine with independent credentials, tasks, and project access.
+**Antigravity Account Switcher & Migration Suite** by **[mad-helpers](https://github.com/mad-helpers)** (co-owned by **[Madgod-xyz](https://github.com/Madgod-xyz)** & **[Bombhub-apk](https://github.com/Bombhub-apk)**) is a high-performance native cross-platform solution (GUI, in-editor HUD pill, and CLI). It allows you to swap identities in under 3 seconds **or** run two completely isolated Antigravity instances side-by-side on the same machine with independent credentials, tasks, and project access.
 
 ### ✨ Key Features
 
@@ -102,7 +102,7 @@ Switching between multiple Google accounts on **Google Antigravity** can be tedi
 ### Descripción General
 Cambiar entre múltiples cuentas de Google en **Google Antigravity** suele ser un proceso complejo debido a que las credenciales de sesión están almacenadas en el **Administrador de Credenciales de Windows** (`service: "gemini"`, `account: "antigravity"`) o en el **Llavero de macOS**.
 
-La **Suite de Cambio de Cuenta y Migración para Antigravity** desarrollada por **[Madgod-xyz](https://github.com/Madgod-xyz)** es una solución nativa multiplataforma de alto rendimiento (GUI de escritorio, píldora HUD integrada en el editor y CLI). Permite alternar identidades en menos de 3 segundos **o** ejecutar dos ventanas de Antigravity simultáneamente de manera independiente con cuentas, tareas y proyectos completamente aislados.
+La **Suite de Cambio de Cuenta y Migración para Antigravity** desarrollada por **[mad-helpers](https://github.com/mad-helpers)** (co-propiedad de **[Madgod-xyz](https://github.com/Madgod-xyz)** & **[Bombhub-apk](https://github.com/Bombhub-apk)**) es una solución nativa multiplataforma de alto rendimiento (GUI de escritorio, píldora HUD integrada en el editor y CLI). Permite alternar identidades en menos de 3 segundos **o** ejecutar dos ventanas de Antigravity simultáneamente de manera independiente con cuentas, tareas y proyectos completamente aislados.
 
 ### ✨ Características Principales
 
@@ -144,7 +144,7 @@ La **Suite de Cambio de Cuenta y Migración para Antigravity** desarrollada por 
 ## 🇮🇷 فارسی
 
 ### معرفی و قابلیت‌ها
-این سوئیت جامع توسعه داده شده توسط **[Madgod-xyz](https://github.com/Madgod-xyz)**، راه‌حلی فوق‌العاده سریع و نیتیو برای سوئیچ هویت‌ها، اجرای همزمان دو پنجره مجزا و انتقال هوشمند پروژه‌ها و مکالمات ایجنت در **Google Antigravity** است.
+این سوئیت جامع توسعه داده شده توسط سازمان **[mad-helpers](https://github.com/mad-helpers)** (مالکیت مشترک **[Madgod-xyz](https://github.com/Madgod-xyz)** و **[Bombhub-apk](https://github.com/Bombhub-apk)**)، راه‌حلی فوق‌العاده سریع و نیتیو برای سوئیچ هویت‌ها، اجرای همزمان دو پنجره مجزا و انتقال هوشمند پروژه‌ها و مکالمات ایجنت در **Google Antigravity** است.
 
 ### 🌟 قابلیت‌های کلیدی:
 * ⚡️ **اجرای همزمان دو پنجره مجزا (Dual-Instance Concurrent Runner)** با دو جیمیل کاملاً تفکیک‌شده و پوشه‌های مستقل داده (`Antigravity-Instance2`).
@@ -159,7 +159,7 @@ La **Suite de Cambio de Cuenta y Migración para Antigravity** desarrollada por 
 ## 🇨🇳 简体中文
 
 ### 概述与核心特性
-由 **[Madgod-xyz](https://github.com/Madgod-xyz)** 精心打造的 Antigravity 账号管理与迁移套件，提供一键极速切号、多实例双开并发、任务隔离及项目资产跨账号同步功能。
+由 **[mad-helpers](https://github.com/mad-helpers)**（联合所有者 **[Madgod-xyz](https://github.com/Madgod-xyz)** 与 **[Bombhub-apk](https://github.com/Bombhub-apk)**）精心打造的 Antigravity 账号管理与迁移套件，提供一键极速切号、多实例双开并发、任务隔离及项目资产跨账号同步功能。
 
 * ⚡️ **多开并发实例**：同时运行两个独立的 Antigravity 窗口，各自绑定独立 Google 账号。
 * 🔄 **秒级同窗口切换**：3 秒内平滑切换身份，保留当前项目。
@@ -208,4 +208,4 @@ graph TD
 ## 📄 License
 Distributed under the **MIT License**. See `LICENSE` for details.
 
-Developed with precision and care by **[Madgod-xyz](https://github.com/Madgod-xyz)**.
+Developed with precision and care by **[mad-helpers](https://github.com/mad-helpers)** ([Madgod-xyz](https://github.com/Madgod-xyz) & [Bombhub-apk](https://github.com/Bombhub-apk)).
