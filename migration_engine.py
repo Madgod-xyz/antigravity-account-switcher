@@ -923,11 +923,11 @@ def toggle_task_state(task_name, enable=True, requesting_account=None):
         "msg": f"تسک '{task_name}' با موفقیت {state_str} شد."
     }
 
-def check_task_guard(task_name, current_account=None):
+def check_task_guard(task_name, current_account=None, instance_id=None):
     """
-    Runtime execution guard for scheduled tasks and cron jobs.
-    Returns whether current_account is permitted to run task_name.
-    If current_account is not specified, auto-detects from active session.
+    Runtime execution guard for scheduled tasks, cron jobs, and background runners.
+    Returns whether current_account and instance_id are permitted to run task_name.
+    Strict bidirectional isolation: Account 1 tasks never run in Account 2, and vice versa.
     """
     manifest = load_task_manifest()
     task_entry = manifest.get("tasks", {}).get(task_name)
@@ -935,10 +935,14 @@ def check_task_guard(task_name, current_account=None):
         return {"allowed": True, "reason": "Unmanaged task"}
 
     owner = norm_account(task_entry.get("owner_account", PRIMARY_ACCOUNT))
-    isolated = task_entry.get("isolated_from_account2", False)
+    allowed_instances = task_entry.get("allowed_instances", ["instance_1"])
+    isolated1 = task_entry.get("isolated_from_account1", False)
+    isolated2 = task_entry.get("isolated_from_account2", False)
+
+    curr_instance = instance_id or os.environ.get("ANTIGRAVITY_INSTANCE_ID", "instance_1")
 
     if not current_account:
-        if os.environ.get("ANTIGRAVITY_INSTANCE_ID") == "instance_2" or os.environ.get("ANTIGRAVITY_ACCOUNT") == SECONDARY_ACCOUNT:
+        if curr_instance == "instance_2" or os.environ.get("ANTIGRAVITY_ACCOUNT") == SECONDARY_ACCOUNT:
             current_account = SECONDARY_ACCOUNT
         else:
             # Detect active account from active_quota.json
@@ -955,12 +959,30 @@ def check_task_guard(task_name, current_account=None):
 
     curr_clean = norm_account(current_account)
 
-    if curr_clean == SECONDARY_ACCOUNT and isolated and owner != SECONDARY_ACCOUNT:
+    # 1. Instance check
+    if allowed_instances and curr_instance not in allowed_instances:
         return {
             "allowed": False,
             "owner": owner,
-            "reason": f"Task '{task_name}' is isolated to account '{owner}' and blocked for '{curr_clean}'."
+            "reason": f"Task '{task_name}' is restricted to {allowed_instances}, current instance is '{curr_instance}'."
         }
+
+    # 2. Account 2 isolation
+    if curr_clean == SECONDARY_ACCOUNT and (isolated2 or owner != SECONDARY_ACCOUNT):
+        return {
+            "allowed": False,
+            "owner": owner,
+            "reason": f"Task '{task_name}' is assigned to '{owner}' and blocked for account 2 ('{curr_clean}')."
+        }
+
+    # 3. Account 1 isolation
+    if curr_clean == PRIMARY_ACCOUNT and (isolated1 or owner == SECONDARY_ACCOUNT):
+        return {
+            "allowed": False,
+            "owner": owner,
+            "reason": f"Task '{task_name}' is assigned to '{owner}' and blocked for account 1 ('{curr_clean}')."
+        }
+
     return {"allowed": True, "owner": owner}
 
 # ==============================================================================
@@ -1208,6 +1230,12 @@ def delete_conversation(conv_id):
             conn.close()
         except Exception:
             pass
+
+def is_account2(email):
+    if not email:
+        return False
+    norm = str(email).lower().strip()
+    return norm in ('instance_2', 'secondary_account', 'bombhub.apk@gmail.com') or 'bombhub' in norm or 'account2' in norm
 
 if __name__ == '__main__':
     import argparse

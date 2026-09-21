@@ -13,6 +13,47 @@
   if (window.__aqm_submenu_observer) { window.__aqm_submenu_observer.disconnect(); window.__aqm_submenu_observer = null; }
   if (window.__aqm_dom_observer) { window.__aqm_dom_observer.disconnect(); window.__aqm_dom_observer = null; }
   if (window.__aqm_rtl_interval) { clearInterval(window.__aqm_rtl_interval); window.__aqm_rtl_interval = null; }
+  // Clean up only our own tracked timers
+  if (Array.isArray(window.__aqm_timers)) {
+    window.__aqm_timers.forEach(id => { clearInterval(id); clearTimeout(id); });
+    window.__aqm_timers = [];
+  }
+  function safeAppendToHead(el) {
+    try {
+      const target = document.head || document.documentElement || document.body;
+      if (target) {
+        target.appendChild(el);
+      } else {
+        document.addEventListener('DOMContentLoaded', () => {
+          (document.head || document.documentElement || document.body)?.appendChild(el);
+        }, { once: true });
+      }
+    } catch(e) {}
+  }
+
+  // --- Core Multi-Instance / Multi-Account Helpers ---
+  function isAccount2(email) {
+    if (!email) return false;
+    const norm = String(email).toLowerCase().trim();
+    if (norm === 'instance_2' || norm === 'secondary_account' || norm.includes('account2')) return true;
+    // Any account other than madgod is an alternate/secondary account (e.g. bombhub, ali135)
+    return norm !== 'madgod.cum@gmail.com' && norm !== 'primary_account';
+  }
+
+  function isInstance2Window() {
+    if (window.__antigravity_instance === 'instance_2') return true;
+    if (window.__antigravity_instance === 'instance_1') return false;
+    try {
+      if (localStorage.getItem('antigravity:instance_id') === 'instance_2') return true;
+      if (localStorage.getItem('antigravity:instance_id') === 'instance_1') return false;
+    } catch(e) {}
+    if (window.__antigravity_accounts) {
+      if (window.__antigravity_accounts.instanceId === 'instance_2' || window.__antigravity_accounts.instance_id === 'instance_2') return true;
+      if (window.__antigravity_accounts.instanceId === 'instance_1' || window.__antigravity_accounts.instance_id === 'instance_1') return false;
+    }
+    return false;
+  }
+
 
   // Clean up any test style or standalone legacy RTL elements
   const testVazir = document.getElementById('aqm-test-vazir');
@@ -55,7 +96,7 @@
       link.id = sheet.id;
       link.rel = 'stylesheet';
       link.href = sheet.href;
-      document.head.appendChild(link);
+      safeAppendToHead(link);
     }
   });
 
@@ -75,7 +116,7 @@
           link.id = id;
           link.rel = 'stylesheet';
           link.href = f.url.trim();
-          document.head.appendChild(link);
+          safeAppendToHead(link);
         }
       }
     });
@@ -97,7 +138,7 @@
   if (!style) {
     style = document.createElement('style');
     style.id = 'aqm-styles';
-    document.head.appendChild(style);
+    safeAppendToHead(style);
   }
   style.textContent = `
       @keyframes aqm-pulse-dot {
@@ -280,7 +321,7 @@
   if (!swStyleTag) {
     swStyleTag = document.createElement('style');
     swStyleTag.id = 'aqm-switcher-styles';
-    document.head.appendChild(swStyleTag);
+    safeAppendToHead(swStyleTag);
   }
   swStyleTag.textContent = `
     .aqm-switcher-modal {
@@ -665,29 +706,60 @@
     }
   };
 
+  const userSettings = (typeof window !== 'undefined' && window.__antigravity_user_settings) || {};
+
   let currentThemeId = 'cyber';
-  try {
-    const savedTheme = localStorage.getItem('antigravity:quota_theme');
-    if (savedTheme && THEMES[savedTheme]) currentThemeId = savedTheme;
-  } catch (e) {}
+  if (userSettings.theme && THEMES[userSettings.theme]) {
+    currentThemeId = userSettings.theme;
+  } else {
+    try {
+      const savedTheme = localStorage.getItem('antigravity:quota_theme');
+      if (savedTheme && THEMES[savedTheme]) currentThemeId = savedTheme;
+    } catch (e) {}
+  }
 
   let isFullAppThemingEnabled = true;
-  try {
-    const savedAppTheming = localStorage.getItem('antigravity:full_app_theming');
-    if (savedAppTheming !== null) isFullAppThemingEnabled = (savedAppTheming === 'true');
-  } catch (e) {}
+  if (userSettings.fullTheming !== undefined) {
+    isFullAppThemingEnabled = Boolean(userSettings.fullTheming);
+  } else {
+    try {
+      const savedAppTheming = localStorage.getItem('antigravity:full_app_theming');
+      if (savedAppTheming !== null) isFullAppThemingEnabled = (savedAppTheming === 'true');
+    } catch (e) {}
+  }
 
-  let customFontEn = 'default';
-  try {
-    const savedEn = localStorage.getItem('antigravity:custom_font_en');
-    if (savedEn) customFontEn = savedEn;
-  } catch (e) {}
+  let customFontEn = (userSettings.fontEn && userSettings.fontEn !== 'default') ? userSettings.fontEn : 'default';
+  if (customFontEn === 'default') {
+    try {
+      const savedEn = localStorage.getItem('antigravity:custom_font_en');
+      if (savedEn) customFontEn = savedEn;
+    } catch (e) {}
+  }
 
-  let customFontFa = 'default';
-  try {
-    const savedFa = localStorage.getItem('antigravity:custom_font_fa');
-    if (savedFa) customFontFa = savedFa;
-  } catch (e) {}
+  let customFontFa = (userSettings.fontFa && userSettings.fontFa !== 'default') ? userSettings.fontFa : 'default';
+  if (customFontFa === 'default') {
+    try {
+      const savedFa = localStorage.getItem('antigravity:custom_font_fa');
+      if (savedFa) customFontFa = savedFa;
+    } catch (e) {}
+  }
+
+  function persistUserSettings(patch) {
+    if (!patch || typeof patch !== 'object') return;
+    try {
+      window.__antigravity_user_settings = Object.assign({}, window.__antigravity_user_settings || {}, patch);
+    } catch(e) {}
+    try {
+      callDaemonIpc('save_user_settings', patch);
+    } catch(e) {}
+    try {
+      fetch('http://127.0.0.1:39281/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch)
+      }).catch(() => {});
+    } catch(e) {}
+  }
 
   let isImportFormOpen = false;
 
@@ -723,7 +795,7 @@
     if (!typoStyle) {
       typoStyle = document.createElement('style');
       typoStyle.id = 'aqm-typography-style';
-      document.head.appendChild(typoStyle);
+      safeAppendToHead(typoStyle);
     }
     typoStyle.textContent = `
       #antigravity-usage-popover {
@@ -748,7 +820,7 @@
     if (!style) {
       style = document.createElement('style');
       style.id = 'aqm-app-workspace-theme';
-      document.head.appendChild(style);
+      safeAppendToHead(style);
     }
 
     style.textContent = `
@@ -857,14 +929,20 @@
     fontSize: '16'
   };
   try {
-    const savedRtl = localStorage.getItem('antigravity:rtl_config');
-    if (savedRtl) rtlConfig = { ...rtlConfig, ...JSON.parse(savedRtl) };
+    if (userSettings.rtl) {
+      const parsedRtl = typeof userSettings.rtl === 'string' ? JSON.parse(userSettings.rtl) : userSettings.rtl;
+      rtlConfig = { ...rtlConfig, ...parsedRtl };
+    } else {
+      const savedRtl = localStorage.getItem('antigravity:rtl_config');
+      if (savedRtl) rtlConfig = { ...rtlConfig, ...JSON.parse(savedRtl) };
+    }
   } catch (e) {}
 
   function saveRtlConfig() {
     try {
       localStorage.setItem('antigravity:rtl_config', JSON.stringify(rtlConfig));
     } catch (e) {}
+    persistUserSettings({ rtl: rtlConfig });
   }
 
   function applyRtlStyles() {
@@ -876,7 +954,7 @@
     if (!rtlStyle) {
       rtlStyle = document.createElement('style');
       rtlStyle.id = 'aqm-rtl-engine-style';
-      document.head.appendChild(rtlStyle);
+      safeAppendToHead(rtlStyle);
     }
 
     const forceRtlRule = rtlConfig.forceRTL ? `
@@ -1035,16 +1113,21 @@
     }, { capture: true });
   }
 
-  let displayMode = 'remaining';
-  try {
-    const saved = localStorage.getItem('antigravity:quota_mode');
-    if (saved === 'remaining' || saved === 'used') displayMode = saved;
-  } catch (e) {}
+  let displayMode = userSettings.mode || 'remaining';
+  if (!userSettings.mode) {
+    try {
+      const saved = localStorage.getItem('antigravity:quota_mode');
+      if (saved === 'remaining' || saved === 'used') displayMode = saved;
+    } catch (e) {}
+  }
 
-  let isPrivacyMode = true;
-  try {
-    isPrivacyMode = localStorage.getItem('antigravity:privacy_mode') !== 'false';
-  } catch (e) {}
+  let isPrivacyMode = (userSettings.privacyMode !== undefined) ? Boolean(userSettings.privacyMode) : false;
+  if (userSettings.privacyMode === undefined) {
+    try {
+      const p = localStorage.getItem('antigravity:privacy_mode');
+      if (p !== null) isPrivacyMode = (p !== 'false');
+    } catch (e) {}
+  }
 
   let isDragging = false;
   let dragStartX = 0, dragStartY = 0;
@@ -1054,35 +1137,81 @@
   let activeTaskPollingInterval = null;
 
   let currentUsage = (() => {
+    const isInst2 = (typeof window !== 'undefined' && window.__antigravity_instance === 'instance_2') || 
+                    (typeof localStorage !== 'undefined' && localStorage.getItem('antigravity:instance_id') === 'instance_2');
     try {
+      // Priority 1: window.__antigravity_quota set by daemon (always fresh, most trusted)
       if (window.__antigravity_quota && window.__antigravity_quota.session) {
+        // Always trust daemon-injected quota — it's set correctly per instance
         return window.__antigravity_quota;
       }
+      // Priority 2: localStorage keyed by instance-specific email
+      const instanceAccount = localStorage.getItem('antigravity:account_email');
+      if (instanceAccount) {
+        const emailKey = 'antigravity:active_quota:' + instanceAccount;
+        const itemByEmail = localStorage.getItem(emailKey);
+        if (itemByEmail) {
+          const parsed = JSON.parse(itemByEmail);
+          if (parsed && parsed.session) return parsed;
+        }
+      }
+      // Priority 3: generic localStorage — only if email matches this instance
       const item = localStorage.getItem('antigravity:active_quota');
       if (item) {
         const parsed = JSON.parse(item);
-        if (parsed && parsed.session) return parsed;
+        if (parsed && parsed.session) {
+          const qEmail = parsed.email;
+          const assignedEmail = localStorage.getItem('antigravity:account_email') || window.__antigravity_account || '';
+          if (!assignedEmail || !qEmail || qEmail.toLowerCase() === assignedEmail.toLowerCase()) {
+            return parsed;
+          }
+        }
       }
     } catch (e) {}
+    // Fallback: use manifest to get correct email dynamically
+    let assignedEmail = '';
+    try {
+      assignedEmail = localStorage.getItem('antigravity:account_email') || window.__antigravity_account || '';
+    } catch(e) {}
+    let fallbackEmail = assignedEmail || (isInst2 ? 'bombhub.apk@gmail.com' : 'madgod.cum@gmail.com');
+    let fallbackName = (assignedEmail ? (assignedEmail.split('@')[0].split('.')[0].charAt(0).toUpperCase() + assignedEmail.split('@')[0].split('.')[0].slice(1)) : (isInst2 ? 'Secondary' : 'Primary'));
+    let fallbackAvatar = '';
+    try {
+      const manifestStr = localStorage.getItem('antigravity:accounts_manifest');
+      if (manifestStr) {
+        const manifest = JSON.parse(manifestStr);
+        const keys = Object.keys(manifest || {});
+        if (assignedEmail && manifest[assignedEmail]) {
+          fallbackEmail = assignedEmail;
+          fallbackName = manifest[assignedEmail]?.name || assignedEmail;
+          fallbackAvatar = manifest[assignedEmail]?.avatar || '';
+        } else if (keys.length > 0) {
+          const matchKey = (isInst2 ? (keys.find(k => isAccount2(k)) || keys[1]) : keys[0]) || keys[0];
+          fallbackEmail = matchKey;
+          fallbackName = manifest[matchKey]?.name || matchKey;
+          fallbackAvatar = manifest[matchKey]?.avatar || '';
+        }
+      }
+    } catch(e) {}
     return {
-      email: (typeof window !== 'undefined' && (window.__antigravity_account || localStorage.getItem('antigravity:account_email'))) || "user@example.com",
-      name: "Pro User",
-      avatar: "",
+      email: fallbackEmail,
+      name: fallbackName,
+      avatar: fallbackAvatar,
       tier: "Google AI Pro",
       tier_code: "pro",
       session: {
-        name: "Gemini (Pro & Flash)",
-        used_pct: 28.0,
-        remaining_pct: 72.0,
-        weekly_rem: 51.0,
-        weekly_pct: 49.0,
-        resets_in: "2 hr 4 min",
-        reset_time: "02:16 PM"
+        name: "Gemini 3.8 Flash High",
+        used_pct: 0,
+        remaining_pct: 100,
+        weekly_rem: 100,
+        weekly_pct: 0,
+        resets_in: "loading...",
+        reset_time: ""
       },
       weekly: {
-        remaining_pct: 51.0,
-        used_pct: 49.0,
-        resets_in: "2 days, 19 hours"
+        remaining_pct: 100,
+        used_pct: 0,
+        resets_in: "loading..."
       },
       pools: []
     };
@@ -1097,14 +1226,23 @@
 
   async function fetchStoredQuota() {
     try {
+      const assignedEmail = localStorage.getItem('antigravity:account_email') || window.__antigravity_account || '';
       if (window.__antigravity_quota && window.__antigravity_quota.session) {
-        currentUsage = { ...currentUsage, ...window.__antigravity_quota };
-        return;
+        const qEmail = window.__antigravity_quota.email;
+        if (!assignedEmail || !qEmail || qEmail.toLowerCase() === assignedEmail.toLowerCase()) {
+          currentUsage = { ...currentUsage, ...window.__antigravity_quota };
+          return;
+        }
       }
       const item = localStorage.getItem('antigravity:active_quota');
       if (item) {
         const parsed = JSON.parse(item);
-        if (parsed && parsed.session) currentUsage = { ...currentUsage, ...parsed };
+        if (parsed && parsed.session) {
+          const qEmail = parsed.email;
+          if (!assignedEmail || !qEmail || qEmail.toLowerCase() === assignedEmail.toLowerCase()) {
+            currentUsage = { ...currentUsage, ...parsed };
+          }
+        }
       }
     } catch (e) {}
   }
@@ -1223,29 +1361,68 @@
     if (pop && pop.style.display !== 'none' && !pop.matches(':hover')) renderPopover();
 
     try {
-      const liveData = await fetchLiveQuotaFromCloudCode();
-      if (liveData && liveData.session) {
-        currentUsage = { ...currentUsage, ...liveData };
-        window.__antigravity_quota = currentUsage;
-        try {
-          const s = safeJsonStringify(currentUsage);
-          if (s) localStorage.setItem('antigravity:active_quota', s);
-        } catch (e) {}
-      } else {
-        const res = await fetch('http://127.0.0.1:39281/sync');
+      // Always fetch from daemon first (most reliable, per-instance)
+      const instParam = isInstance2Window() ? 'instance_2' : 'instance_1';
+      let daemonData = null;
+      try {
+        const res = await fetch(`http://127.0.0.1:39281/sync?instance=${instParam}`);
         if (res.ok) {
           const data = await res.json();
           if (data && data.session) {
-            currentUsage = { ...currentUsage, ...data };
-            window.__antigravity_quota = currentUsage;
-            try {
-              const s = safeJsonStringify(currentUsage);
-              if (s) localStorage.setItem('antigravity:active_quota', s);
-            } catch (e) {}
+            const isInst2 = isInstance2Window();
+            // Only accept data that matches this instance
+            const dataEmail = (data.email || '').toLowerCase();
+            const currentEmail = (currentUsage.email || '').toLowerCase();
+            // Accept if: no email mismatch, or email matches current instance's account
+            const assignedEmail = (localStorage.getItem('antigravity:account_email') || window.__antigravity_account || '').toLowerCase();
+            const emailOk = !assignedEmail || !dataEmail || (dataEmail === assignedEmail);
+            if (emailOk) {
+              daemonData = data;
+            }
           }
         }
+      } catch(e) {}
+
+      if (daemonData) {
+        currentUsage = {
+          ...currentUsage,
+          ...daemonData,
+          session: daemonData.session,
+          weekly: daemonData.weekly || currentUsage.weekly,
+          pools: daemonData.pools || currentUsage.pools || []
+        };
+        window.__antigravity_quota = currentUsage;
+        try {
+          const s = safeJsonStringify(currentUsage);
+          if (s) {
+            localStorage.setItem('antigravity:active_quota', s);
+            if (currentUsage.email) localStorage.setItem('antigravity:active_quota:' + currentUsage.email, s);
+          }
+        } catch (e) {}
+      } else {
+        // Fallback: try live cloud code (less reliable due to shared credential store)
+        const liveData = await fetchLiveQuotaFromCloudCode();
+        if (liveData && liveData.session) {
+          // Preserve identity from currentUsage, only update quota numbers
+          currentUsage = {
+            ...currentUsage,
+            session: liveData.session,
+            weekly: liveData.weekly || currentUsage.weekly,
+            pools: liveData.pools || currentUsage.pools || []
+          };
+          window.__antigravity_quota = currentUsage;
+          try {
+            const s = safeJsonStringify(currentUsage);
+            if (s) {
+              localStorage.setItem('antigravity:active_quota', s);
+              if (currentUsage.email) localStorage.setItem('antigravity:active_quota:' + currentUsage.email, s);
+            }
+          } catch (e) {}
+        }
       }
-    } catch (e) {} finally {
+    } catch (e) {
+      console.warn('[AQM] refreshQuota error:', e);
+    } finally {
       isRefreshing = false;
       renderBadge();
       const p = document.getElementById('antigravity-usage-popover');
@@ -1412,10 +1589,10 @@
     } catch (e) {}
 
     const isRem = (displayMode === 'remaining');
-    const sessUsed = Math.round(currentUsage.session?.used_pct ?? 28);
-    const sessRem = Math.round(currentUsage.session?.remaining_pct ?? (100 - sessUsed));
-    const sessReset = currentUsage.session?.resets_in || '2 hr 4 min';
-    const sessResetTime = currentUsage.session?.reset_time || '02:16 PM';
+    const sessRem = Math.round(currentUsage.session?.remaining_pct ?? (100 - Math.round(currentUsage.session?.used_pct ?? 0)));
+    const sessUsed = Math.round(currentUsage.session?.used_pct ?? (100 - sessRem));
+    const sessReset = currentUsage.session?.resets_in || 'Ready';
+    const sessResetTime = currentUsage.session?.reset_time || '';
     let email = currentUsage.email || window.__antigravity_account || localStorage.getItem('antigravity:account_email') || '';
     if (email === 'developer@antigravity.ai' || !email) {
       email = window.__antigravity_account || localStorage.getItem('antigravity:account_email') || 'user@example.com';
@@ -1427,8 +1604,8 @@
     const mainLabel = isRem ? 'مانده' : 'مصرف';
     const subLabel = isRem ? 'مصرف' : 'مانده';
 
-    const weeklyUsed = Math.round(currentUsage.weekly?.used_pct ?? 49);
-    const weeklyRem = Math.round(currentUsage.weekly?.remaining_pct ?? (100 - weeklyUsed));
+    const weeklyRem = Math.round(currentUsage.weekly?.remaining_pct ?? (100 - Math.round(currentUsage.weekly?.used_pct ?? 0)));
+    const weeklyUsed = Math.round(currentUsage.weekly?.used_pct ?? (100 - weeklyRem));
     const weeklyShow = isRem ? weeklyRem : weeklyUsed;
 
     const activeModel = getActiveModelName();
@@ -1857,7 +2034,7 @@
             <span style="font-weight:600;color:${theme.textColor};">سهمیه هفتگی:</span>
             <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${theme.chipColor};" data-font="mono" dir="ltr">${weeklyShow}%</span>
             <span>${mainLabel}</span>
-            <span style="opacity:0.5;">(${currentUsage.weekly?.resets_in || '2 days, 19 hours'})</span>
+            <span style="opacity:0.5;">(${currentUsage.weekly?.resets_in || 'Ready'})</span>
           </div>
           <div style="width:80px;height:3.5px;border-radius:9999px;background:rgba(255,255,255,0.08);overflow:hidden;">
             <div style="height:100%;width:${weeklyShow}%;background:${theme.accentSecondary || theme.accent};border-radius:9999px;"></div>
@@ -1965,6 +2142,7 @@
         try {
           localStorage.setItem('antigravity:privacy_mode', String(isPrivacyMode));
         } catch (err) {}
+        persistUserSettings({ privacyMode: isPrivacyMode });
         renderPopover();
       };
     }
@@ -1973,6 +2151,7 @@
       e.stopPropagation();
       displayMode = 'remaining';
       try { localStorage.setItem('antigravity:quota_mode', 'remaining'); } catch (err) {}
+      persistUserSettings({ mode: 'remaining' });
       renderBadge();
       renderPopover();
     };
@@ -1981,6 +2160,7 @@
       e.stopPropagation();
       displayMode = 'used';
       try { localStorage.setItem('antigravity:quota_mode', 'used'); } catch (err) {}
+      persistUserSettings({ mode: 'used' });
       renderBadge();
       renderPopover();
     };
@@ -2015,6 +2195,7 @@
         if (THEMES[tid]) {
           currentThemeId = tid;
           try { localStorage.setItem('antigravity:quota_theme', tid); } catch (err) {}
+          persistUserSettings({ theme: tid });
           applyAppWorkspaceTheme(getActiveTheme(), isFullAppThemingEnabled);
           renderBadge();
           renderPopover();
@@ -2028,6 +2209,7 @@
         const fn = btn.getAttribute('data-font-en');
         customFontEn = fn;
         try { localStorage.setItem('antigravity:custom_font_en', fn); } catch (err) {}
+        persistUserSettings({ fontEn: fn });
         ensureFontLoaded(fn);
         applyAppWorkspaceTheme(getActiveTheme(), isFullAppThemingEnabled);
         renderBadge();
@@ -2041,6 +2223,7 @@
         const fn = btn.getAttribute('data-font-fa');
         customFontFa = fn;
         try { localStorage.setItem('antigravity:custom_font_fa', fn); } catch (err) {}
+        persistUserSettings({ fontFa: fn });
         ensureFontLoaded(fn);
         applyAppWorkspaceTheme(getActiveTheme(), isFullAppThemingEnabled);
         renderBadge();
@@ -2081,7 +2264,7 @@
           return;
         }
         const rawUrl = importUrlInput ? importUrlInput.value.trim() : '';
-        const typeRadio = pop.querySelector('input[name="aqm-import-type"]:checked');
+        const typeRadio = pop.querySelector('input[name="aqm-font-type"]:checked');
         const fType = typeRadio ? typeRadio.value : 'fa';
 
         if (!customImportedFonts.some(f => f.id.toLowerCase() === rawName.toLowerCase())) {
@@ -2107,6 +2290,12 @@
           customFontEn = rawName;
           try { localStorage.setItem('antigravity:custom_font_en', rawName); } catch(err){}
         }
+
+        persistUserSettings({
+          customImportedFonts,
+          fontEn: customFontEn,
+          fontFa: customFontFa
+        });
 
         ensureFontLoaded(rawName);
         applyAppWorkspaceTheme(getActiveTheme(), isFullAppThemingEnabled);
@@ -2134,6 +2323,12 @@
           try { localStorage.setItem('antigravity:custom_font_en', 'default'); } catch(err){}
         }
 
+        persistUserSettings({
+          customImportedFonts,
+          fontEn: customFontEn,
+          fontFa: customFontFa
+        });
+
         applyAppWorkspaceTheme(getActiveTheme(), isFullAppThemingEnabled);
         renderBadge();
         renderPopover();
@@ -2145,6 +2340,7 @@
       e.stopPropagation();
       isFullAppThemingEnabled = !isFullAppThemingEnabled;
       try { localStorage.setItem('antigravity:full_app_theming', String(isFullAppThemingEnabled)); } catch (err) {}
+      persistUserSettings({ fullTheming: isFullAppThemingEnabled });
       applyAppWorkspaceTheme(getActiveTheme(), isFullAppThemingEnabled);
       renderBadge();
       renderPopover();
@@ -2251,10 +2447,9 @@
 
           if (hasMoved) {
             try {
-              localStorage.setItem('antigravity:popover_pos', JSON.stringify({
-                left: pop.style.left,
-                top: pop.style.top
-              }));
+              const pos = { left: pop.style.left, top: pop.style.top };
+              localStorage.setItem('antigravity:popover_pos', JSON.stringify(pos));
+              persistUserSettings({ popoverPos: pos });
             } catch (err) {}
           }
         }
@@ -2268,6 +2463,7 @@
         e.stopPropagation();
         try {
           localStorage.removeItem('antigravity:popover_pos');
+          persistUserSettings({ popoverPos: null });
         } catch (err) {}
         const anchor = document.getElementById('antigravity-usage-pill') || trigger;
         const rect = anchor.getBoundingClientRect();
@@ -2553,43 +2749,68 @@
   function isAccount2(email) {
     if (!email) return false;
     const norm = String(email).toLowerCase().trim();
-    if (norm === 'instance_2' || norm === 'secondary_account' || norm.includes('bombhub') || norm.includes('account2')) return true;
-    const sec = (typeof swState !== 'undefined' && swState.savedAccounts && Object.keys(swState.savedAccounts).length > 1) ? Object.keys(swState.savedAccounts)[1] : null;
-    if (sec && norm === sec.toLowerCase().trim()) return true;
-    return false;
+    if (norm === 'instance_2' || norm === 'secondary_account' || norm.includes('account2')) return true;
+    return norm !== 'madgod.cum@gmail.com' && norm !== 'primary_account';
   }
 
   let swState = {
     activeAccount: (() => {
+      const isInst2 = isInstance2Window();
       try {
+        let assignedEmail = localStorage.getItem('antigravity:account_email') || window.__antigravity_account || '';
+
         if (window.__antigravity_accounts && window.__antigravity_accounts.activeAccount) {
           const a = window.__antigravity_accounts.activeAccount;
-          if (a && a.email && a.email !== 'developer@antigravity.ai') return a;
+          if (a && a.email && a.email !== 'developer@antigravity.ai') {
+            if (!assignedEmail || a.email.toLowerCase() === assignedEmail.toLowerCase()) {
+              return a;
+            }
+          }
         }
         if (window.__antigravity_quota && window.__antigravity_quota.email && window.__antigravity_quota.email !== 'developer@antigravity.ai') {
-          return window.__antigravity_quota;
+          const qEmail = window.__antigravity_quota.email;
+          if (!assignedEmail || qEmail.toLowerCase() === assignedEmail.toLowerCase()) {
+            return window.__antigravity_quota;
+          }
         }
         const cachedActive = localStorage.getItem('antigravity:active_quota');
         if (cachedActive) {
           const p = JSON.parse(cachedActive);
-          if (p && p.email && p.email !== 'developer@antigravity.ai') return p;
+          if (p && p.email && p.email !== 'developer@antigravity.ai') {
+            if (!assignedEmail || p.email.toLowerCase() === assignedEmail.toLowerCase()) {
+              return p;
+            }
+          }
+        }
+        if (assignedEmail) {
+          let manifest = {};
+          try {
+            manifest = JSON.parse(localStorage.getItem('antigravity:accounts_manifest') || '{}');
+          } catch(e) {}
+          if (manifest[assignedEmail]) {
+            return {
+              email: assignedEmail,
+              name: manifest[assignedEmail].name || assignedEmail.split('@')[0],
+              avatar: manifest[assignedEmail].avatar || '',
+              tier: manifest[assignedEmail].tier || 'Google AI Pro',
+              tier_code: manifest[assignedEmail].tier_code || 'pro'
+            };
+          }
         }
       } catch(e) {}
-      if (isInstance2Window()) {
-        const inst2Email = window.__antigravity_account || localStorage.getItem('antigravity:account_email') || "account2@example.com";
+      if (isInst2) {
         return {
-          email: inst2Email,
-          name: "Account 2",
-          avatar: "",
+          email: "bombhub.apk@gmail.com",
+          name: "Bombhub",
+          avatar: "https://lh3.googleusercontent.com/a/ACg8ocKTPRhpR3YKTGdBUU3d4-lhBT_p1zB89ww-TIJ_o1g54w4Cfp4=s96-c",
           tier: "Google AI Pro",
           tier_code: "pro"
         };
       }
-      const inst1Email = window.__antigravity_account || localStorage.getItem('antigravity:account_email') || "account1@example.com";
       return {
-        email: inst1Email,
-        name: "Account 1",
-        avatar: "",
+        email: "madgod.cum@gmail.com",
+        name: "Madgod",
+        avatar: "https://lh3.googleusercontent.com/a/ACg8ocKL_c03MxCossmd802Ci3aMxOH1oka7dLjgyC_xM0FnDA48xlA=s96-c",
         tier: "Google AI Pro",
         tier_code: "pro"
       };
@@ -2690,7 +2911,7 @@
     }
   } catch(e) {}
 
-  let swLang = localStorage.getItem('antigravity:switcher_lang') || 'en';
+  let swLang = (userSettings && userSettings.lang) || localStorage.getItem('antigravity:switcher_lang') || 'fa';
   let swTab = 'accounts';
   let swSelectedConvs = new Set();
   let swMode = 'copy';
@@ -2759,17 +2980,10 @@
       const prevAcc = swState.activeAccount || {};
       let newAcc = { ...data.activeAccount };
 
-      // Ensure instance 2 never takes instance 1's email, and vice versa
-      if (isInst2 && !isAccount2(newAcc.email)) {
-        const acc2Key = Object.keys(swState.savedAccounts || {}).find(e => isAccount2(e));
-        if (acc2Key && swState.savedAccounts[acc2Key]) {
-          newAcc = { ...swState.savedAccounts[acc2Key] };
-        }
-      } else if (!isInst2 && isAccount2(newAcc.email)) {
-        const acc1Key = Object.keys(swState.savedAccounts || {}).find(e => !isAccount2(e));
-        if (acc1Key && swState.savedAccounts[acc1Key]) {
-          newAcc = { ...swState.savedAccounts[acc1Key] };
-        }
+      if (newAcc.email) {
+        try {
+          localStorage.setItem('antigravity:account_email', newAcc.email);
+        } catch(e) {}
       }
 
       // Never downgrade an active pro/ultra tier to free on transient network updates
@@ -2924,29 +3138,26 @@
     const isInst2 = isInstance2Window();
     const activeAcc = swState.activeAccount || currentUsage || {};
     let email = activeAcc.email;
-    if (isInst2) {
-      if (!email || !isAccount2(email)) {
-        const acc2Key = Object.keys(swState.savedAccounts || {}).find(e => isAccount2(e)) || 'bombhub.apk@gmail.com';
-        email = acc2Key;
-        if (swState.savedAccounts && swState.savedAccounts[acc2Key]) {
-          Object.assign(activeAcc, swState.savedAccounts[acc2Key]);
-        }
-      }
-    } else {
-      if (!email || isAccount2(email)) {
-        const acc1Key = Object.keys(swState.savedAccounts || {}).find(e => !isAccount2(e)) || 'madgod.cum@gmail.com';
-        email = acc1Key;
-        if (swState.savedAccounts && swState.savedAccounts[acc1Key]) {
-          Object.assign(activeAcc, swState.savedAccounts[acc1Key]);
-        }
-      }
+    let assignedEmail = '';
+    try {
+      assignedEmail = localStorage.getItem('antigravity:account_email') || window.__antigravity_account || '';
+    } catch(e) {}
+    if (assignedEmail && swState.savedAccounts && swState.savedAccounts[assignedEmail]) {
+      email = assignedEmail;
+      Object.assign(activeAcc, swState.savedAccounts[assignedEmail]);
+    } else if (email && swState.savedAccounts && swState.savedAccounts[email]) {
+      Object.assign(activeAcc, swState.savedAccounts[email]);
+    } else if (assignedEmail) {
+      email = assignedEmail;
     }
-    if (!email) email = isInst2 ? 'account2@example.com' : 'account1@example.com';
+    if (!email) email = isInst2 ? 'bombhub.apk@gmail.com' : 'madgod.cum@gmail.com';
     let cleanDisplayName = (typeof getCleanUserDisplayName === 'function') 
       ? getCleanUserDisplayName(activeAcc.name, email) 
       : ((email ? email.split('@')[0].split('.')[0] : 'User'));
     cleanDisplayName = cleanDisplayName ? (cleanDisplayName.charAt(0).toUpperCase() + cleanDisplayName.slice(1)) : 'User';
-    if (isInstance2Window() && (!cleanDisplayName || cleanDisplayName.toLowerCase() === 'user')) cleanDisplayName = 'Account 2';
+    if (isInstance2Window() && (!cleanDisplayName || cleanDisplayName.toLowerCase() === 'user')) {
+      cleanDisplayName = (email ? (email.split('@')[0].split('.')[0].charAt(0).toUpperCase() + email.split('@')[0].split('.')[0].slice(1)) : 'Secondary');
+    }
     else if (cleanDisplayName.toLowerCase() === 'developer') cleanDisplayName = 'Account 1';
     const avatar = activeAcc.avatar || '';
     const tier = activeAcc.tier || 'Google AI Pro';
@@ -3152,6 +3363,7 @@
                     const accEmailStr = acc.email || k;
                     const accShort = getCleanUserDisplayName(acc.name, accEmailStr);
                     const accInitial = accShort.charAt(0).toUpperCase();
+                    const needsAuth = !!(acc.needs_reauth || !acc.token_file);
                     return `
                       <div class="aqm-sw-card" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;${isCur ? 'border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.03);' : ''}">
                         <div style="display:flex;align-items:center;gap:9px;">
@@ -3162,6 +3374,9 @@
                             <div style="display:flex;align-items:center;gap:6px;">
                               <span style="font-size:12px;font-weight:700;">${accShort}</span>
                               <span style="font-size:8.5px;padding:1px 5px;border-radius:9999px;background:rgba(255,255,255,0.06);color:#94a3b8;text-transform:uppercase;">${acc.tier_code || 'PRO'}</span>
+                              ${needsAuth ? `
+                                <span style="font-size:8.5px;padding:1px 5px;border-radius:9999px;background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);">${isFa ? 'نیاز به ورود' : 'Needs Auth'}</span>
+                              ` : ''}
                             </div>
                             <div style="font-size:10.5px;color:#64748b;font-family:'JetBrains Mono',monospace;" dir="ltr">${acc.email || k}</div>
                           </div>
@@ -3170,6 +3385,11 @@
                         <div style="display:flex;align-items:center;gap:6px;">
                           ${isCur ? `
                             <span style="font-size:10.5px;color:#10b981;font-weight:700;padding:2px 8px;">${t.activeBadge || (isFa ? 'فعال' : 'Active')}</span>
+                          ` : needsAuth ? `
+                            <button class="aqm-sw-btn aqm-sw-btn-primary" data-action="reauth" data-acc="${k}" data-email="${accEmailStr}" style="padding:3px 10px;font-size:11px;background:linear-gradient(135deg, #f59e0b, #d97706) !important;border-color:rgba(245,158,11,0.5) !important;" title="${isFa ? 'ورود به حساب گوگل' : 'Sign In with Google'}">
+                              <span>🔑</span>
+                              <span>${isFa ? 'ورود با گوگل' : 'Sign In'}</span>
+                            </button>
                           ` : `
                             <button class="aqm-sw-btn aqm-sw-btn-primary" data-action="switch" data-acc="${k}" style="padding:3px 10px;font-size:11px;">
                               <span>${t.switchNow || (isFa ? 'سوئیچ' : 'Switch')}</span>
@@ -3429,6 +3649,7 @@
         else if (swLang === 'fa') swLang = 'es';
         else swLang = 'en';
         try { localStorage.setItem('antigravity:switcher_lang', swLang); } catch(e){}
+        persistUserSettings({ lang: swLang });
         renderSwitcherModal();
       };
     }
@@ -3554,6 +3775,31 @@
       };
     }
 
+    // Re-Auth / Sign-In action for unauthenticated accounts
+    modal.querySelectorAll('[data-action="reauth"]').forEach(btn => {
+      btn.onclick = (e) => {
+        if (e) e.stopPropagation();
+        const accKey = btn.getAttribute('data-acc') || btn.getAttribute('data-account') || btn.getAttribute('data-email') || (btn.closest && btn.closest('[data-acc]') && btn.closest('[data-acc]').getAttribute('data-acc'));
+        showSwitcherToast(isFa ? 'در حال باز کردن صفحه ورود گوگل در مرورگر...' : 'Opening Google sign-in...');
+        fetch('http://127.0.0.1:39281/api/oauth_signin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accountKey: accKey })
+        })
+          .then(r => r.json())
+          .then(res => {
+            if (res && res.auth_url) {
+              swOAuthUrl = res.auth_url;
+              renderSwitcherModal();
+              try { window.open(res.auth_url, '_blank'); } catch(err) {}
+            }
+          })
+          .catch(() => {
+            callDaemonIpc('oauth_signin', { accountKey: accKey });
+          });
+      };
+    });
+
     // Switch Account action
     modal.querySelectorAll('[data-action="switch"]').forEach(btn => {
       btn.onclick = () => {
@@ -3567,11 +3813,28 @@
         })
         .then(r => r.json())
         .then(res => {
-          if (res.success) {
+          if (res && res.needs_reauth) {
+            showSwitcherToast(res.error || (isFa ? 'این حساب نیاز به ورود دارد' : 'Account requires sign-in'), true);
+            fetch('http://127.0.0.1:39281/api/oauth_signin', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ accountKey: accKey })
+            })
+              .then(r => r.json())
+              .then(ores => {
+                if (ores && ores.auth_url) {
+                  swOAuthUrl = ores.auth_url;
+                  renderSwitcherModal();
+                  try { window.open(ores.auth_url, '_blank'); } catch(err) {}
+                }
+              }).catch(() => { callDaemonIpc('oauth_signin', { accountKey: accKey }); });
+            return;
+          }
+          if (res && res.success) {
             showSwitcherToast(isFa ? 'حساب فعال شد. در حال راه‌اندازی مجدد...' : 'Account active. Restarting...');
             fetchSwitcherState(() => { renderSwitcherModal(); });
           } else {
-            showSwitcherToast(res.error || (isFa ? 'خطا در جابجایی حساب' : 'Switch error'), true);
+            showSwitcherToast((res && res.error) || (isFa ? 'خطا در جابجایی حساب' : 'Switch error'), true);
           }
         })
         .catch(() => {
@@ -3604,6 +3867,23 @@
         })
         .then(r => r.json())
         .then(res => {
+          if (res && res.needs_reauth) {
+            showSwitcherToast(res.error || (isFa ? 'این حساب نیاز به ورود دارد' : 'Account requires sign-in'), true);
+            fetch('http://127.0.0.1:39281/api/oauth_signin', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ accountKey: accKey })
+            })
+              .then(r => r.json())
+              .then(ores => {
+                if (ores && ores.auth_url) {
+                  swOAuthUrl = ores.auth_url;
+                  renderSwitcherModal();
+                  try { window.open(ores.auth_url, '_blank'); } catch(err) {}
+                }
+              }).catch(() => { callDaemonIpc('oauth_signin', { accountKey: accKey }); });
+            return;
+          }
           if (res && res.success) {
             showSwitcherToast(res.msg || t.dualLaunched || (isFa ? 'پنجره دوم با موفقیت اجرا شد!' : '2nd instance started successfully!'));
           } else if (res && res.error) {
@@ -4004,35 +4284,44 @@
     pill.style.transition = 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)';
 
     const isRem = (displayMode === 'remaining');
-    const sessUsed = Math.round(currentUsage.session?.used_pct ?? 28);
-    const sessRem = Math.round(currentUsage.session?.remaining_pct ?? (100 - sessUsed));
-    const sessReset = currentUsage.session?.resets_in || '2 hr 4 min';
+    const sessRem = Math.round(currentUsage.session?.remaining_pct ?? (100 - Math.round(currentUsage.session?.used_pct ?? 0)));
+    const sessUsed = Math.round(currentUsage.session?.used_pct ?? (100 - sessRem));
+    const sessReset = currentUsage.session?.resets_in || 'Ready';
 
-    const weekUsed = Math.round(currentUsage.weekly?.used_pct ?? 27);
-    const weekRem = Math.round(currentUsage.weekly?.remaining_pct ?? (100 - weekUsed));
+    const weekRem = Math.round(currentUsage.weekly?.remaining_pct ?? (100 - Math.round(currentUsage.weekly?.used_pct ?? 0)));
+    const weekUsed = Math.round(currentUsage.weekly?.used_pct ?? (100 - weekRem));
+    const weekReset = currentUsage.weekly?.resets_in || 'Ready';
 
     const badgeSess = isRem ? sessRem : sessUsed;
     const badgeWeek = isRem ? weekRem : weekUsed;
 
-    const titleTooltip = `Gemini Quota HUD\n• 5-Hour: ${sessRem}% Remaining (${sessUsed}% Used)\n• Weekly: ${weekRem}% Remaining (${weekUsed}% Used)\n• Resets in: ${sessReset}\nClick to view full HUD`;
+    const titleTooltip = `Gemini Quota HUD\n• 5-Hour: ${sessRem}% Remaining (${sessUsed}% Used) - Resets in: ${sessReset}\n• Weekly: ${weekRem}% Remaining (${weekUsed}% Used) - Resets in: ${weekReset}\nClick to view full HUD`;
 
-    badge.title = titleTooltip;
-    badge.innerHTML = `
-      <span style="width:5.5px;height:5.5px;border-radius:50%;background:${theme.dotColor};box-shadow:0 0 7px ${theme.dotColor};animation:aqm-pulse-dot 2s infinite ease-in-out;"></span>
-      <span dir="ltr">${badgeSess}%</span>
-      <span style="opacity:0.35;font-weight:400;margin:0 1px;">|</span>
-      <span style="opacity:0.85;font-size:10px;font-weight:600;" dir="ltr">W: ${badgeWeek}%</span>
-    `;
+    const badgeSig = `${badgeSess}|${badgeWeek}|${theme.dotColor}|${theme.id}`;
+    if (badge.dataset.aqmSig !== badgeSig) {
+      badge.dataset.aqmSig = badgeSig;
+      badge.title = titleTooltip;
+      badge.innerHTML = `
+        <span style="width:5.5px;height:5.5px;border-radius:50%;background:${theme.dotColor};box-shadow:0 0 7px ${theme.dotColor};animation:aqm-pulse-dot 2s infinite ease-in-out;"></span>
+        <span dir="ltr">${badgeSess}%</span>
+        <span style="opacity:0.35;font-weight:400;margin:0 1px;">|</span>
+        <span style="opacity:0.85;font-size:10px;font-weight:600;" dir="ltr">W: ${badgeWeek}%</span>
+      `;
+    }
 
-    pill.title = titleTooltip;
-    pill.innerHTML = `
-      <span style="width:5.5px;height:5.5px;border-radius:50%;background:${theme.dotColor};box-shadow:0 0 7px ${theme.dotColor};animation:aqm-pulse-dot 2s infinite ease-in-out;"></span>
-      <span class="${isRefreshing ? 'aqm-rotating' : ''}" style="color:${theme.id === 'pastel' ? '#ff70a6' : '#fbbf24'};display:flex;align-items:center;filter:drop-shadow(0 0 5px ${theme.id === 'pastel' ? 'rgba(255,112,166,0.6)' : 'rgba(251,191,36,0.6)'});">
-        ${theme.id === 'pastel' ? '🌸' : SVGS.lightning}
-      </span>
-      <span style="letter-spacing:-0.02em;" dir="ltr">${badgeSess}%</span>
-      <span style="opacity:0.75;font-size:10px;font-weight:500;font-family:${fontFa};">(${sessReset})</span>
-    `;
+    const pillSig = `${badgeSess}|${sessReset}|${isRefreshing}|${theme.dotColor}|${theme.id}`;
+    if (pill.dataset.aqmSig !== pillSig) {
+      pill.dataset.aqmSig = pillSig;
+      pill.title = titleTooltip;
+      pill.innerHTML = `
+        <span style="width:5.5px;height:5.5px;border-radius:50%;background:${theme.dotColor};box-shadow:0 0 7px ${theme.dotColor};animation:aqm-pulse-dot 2s infinite ease-in-out;"></span>
+        <span class="${isRefreshing ? 'aqm-rotating' : ''}" style="color:${theme.id === 'pastel' ? '#ff70a6' : '#fbbf24'};display:flex;align-items:center;filter:drop-shadow(0 0 5px ${theme.id === 'pastel' ? 'rgba(255,112,166,0.6)' : 'rgba(251,191,36,0.6)'});">
+          ${theme.id === 'pastel' ? '🌸' : SVGS.lightning}
+        </span>
+        <span style="letter-spacing:-0.02em;" dir="ltr">${badgeSess}%</span>
+        <span style="opacity:0.75;font-size:10px;font-weight:500;font-family:${fontFa};">(${sessReset})</span>
+      `;
+    }
 
     pill.onclick = togglePopover;
 
@@ -4063,76 +4352,72 @@
     accPill.style.userSelect = 'none';
     accPill.style.transition = 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)';
     const isInst2 = isInstance2Window();
-    const accUser = swState.activeAccount || currentUsage || {};
-    let accEmail = accUser.email;
-    if (isInst2) {
-      if (!accEmail || !isAccount2(accEmail)) {
-        const acc2Key = Object.keys(swState.savedAccounts || {}).find(e => isAccount2(e)) || 'bombhub.apk@gmail.com';
-        accEmail = acc2Key;
-        if (swState.savedAccounts && swState.savedAccounts[acc2Key]) {
-          Object.assign(accUser, swState.savedAccounts[acc2Key]);
-        }
-      }
-    } else {
-      if (!accEmail || isAccount2(accEmail)) {
-        const acc1Key = Object.keys(swState.savedAccounts || {}).find(e => !isAccount2(e)) || 'madgod.cum@gmail.com';
-        accEmail = acc1Key;
-        if (swState.savedAccounts && swState.savedAccounts[acc1Key]) {
-          Object.assign(accUser, swState.savedAccounts[acc1Key]);
-        }
-      }
-    }
-    if (!accEmail) accEmail = isInst2 ? 'account2@example.com' : 'account1@example.com';
-    let accName = getCleanUserDisplayName(accUser.name, accEmail);
-    if (accName.toLowerCase() === 'developer') {
-      accName = isInst2 ? 'Account 2' : 'Account 1';
+    let designatedEmail = '';
+    try {
+      designatedEmail = localStorage.getItem('antigravity:account_email') || window.__antigravity_account || (swState.activeAccount && swState.activeAccount.email) || (currentUsage && currentUsage.email) || '';
+    } catch(e) {}
+    if (!designatedEmail) {
+      designatedEmail = isInst2 ? 'bombhub.apk@gmail.com' : 'madgod.cum@gmail.com';
     }
 
-    // Multi-tier avatar lookup with persistence
-    let accAvatar = accUser.avatar || '';
-    if (!accAvatar && swState.savedAccounts && swState.savedAccounts[accEmail]) {
-      accAvatar = swState.savedAccounts[accEmail].avatar || '';
-    }
-    if (!accAvatar) {
-      try {
-        accAvatar = localStorage.getItem('antigravity:avatar_' + accEmail) || '';
-      } catch(e) {}
-    }
-    if (accAvatar) {
-      try { localStorage.setItem('antigravity:avatar_' + accEmail, accAvatar); } catch(e) {}
+    let targetKey = designatedEmail;
+    if (swState.savedAccounts && !swState.savedAccounts[targetKey]) {
+      const matchKey = Object.keys(swState.savedAccounts).find(k => k.toLowerCase() === targetKey.toLowerCase());
+      if (matchKey) {
+        targetKey = matchKey;
+      } else if (isInst2) {
+        const foundKey = Object.keys(swState.savedAccounts).find(e => isAccount2(e));
+        if (foundKey) targetKey = foundKey;
+      }
     }
 
-    // Tier resolution: never downgrade to free if known pro/ultra
+    const savedInfo = (swState.savedAccounts && swState.savedAccounts[targetKey]) || {};
+    let fallbackName = savedInfo.name || (targetKey ? (targetKey.split('@')[0].split('.')[0].charAt(0).toUpperCase() + targetKey.split('@')[0].split('.')[0].slice(1)) : (isInst2 ? 'Secondary' : 'Madgod'));
+    let fallbackAvatar = savedInfo.avatar || '';
+
+    let accUser = {
+      email: targetKey,
+      name: fallbackName,
+      avatar: fallbackAvatar,
+      tier: savedInfo.tier || 'Google AI Pro',
+      tier_code: savedInfo.tier_code || 'pro'
+    };
+
+    if (swState.activeAccount && swState.activeAccount.email && swState.activeAccount.email.toLowerCase() === targetKey.toLowerCase()) {
+      accUser = { ...accUser, ...swState.activeAccount };
+    } else if (currentUsage && currentUsage.email && currentUsage.email.toLowerCase() === targetKey.toLowerCase()) {
+      accUser = { ...accUser, ...currentUsage };
+    }
+
+    if (accUser.name && (accUser.name === 'Account 2' || accUser.name.toLowerCase() === 'user')) {
+      accUser.name = savedInfo.name || fallbackName;
+    }
+
+    let accEmail = targetKey;
+    let accName = accUser.name || fallbackName;
+    let accAvatar = accUser.avatar || fallbackAvatar;
     let accTier = accUser.tier || 'Google AI Pro';
     let accTierCode = (accUser.tier_code || 'pro').toLowerCase();
-    const savedAcc = (swState.savedAccounts && swState.savedAccounts[accEmail]) || {};
-    if (accTierCode === 'free') {
-      if (savedAcc.tier_code === 'pro' || savedAcc.tier_code === 'ultra' || savedAcc.tier_code === 'enterprise') {
-        accTierCode = savedAcc.tier_code;
-        accTier = savedAcc.tier || 'Google AI Pro';
-      } else {
-        accTierCode = 'pro';
-        accTier = 'Google AI Pro';
-      }
-    }
 
     const tierBadgeBg = accTierCode === 'ultra' ? 'linear-gradient(135deg, #ec4899, #8b5cf6)' : (accTierCode === 'pro' ? 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(217,119,6,0.35))' : 'rgba(148,163,184,0.15)');
     const tierBadgeColor = accTierCode === 'ultra' ? '#ffffff' : (accTierCode === 'pro' ? '#fbbf24' : '#94a3b8');
     const tierBadgeBorder = accTierCode === 'ultra' ? 'rgba(236,72,153,0.5)' : (accTierCode === 'pro' ? 'rgba(251,191,36,0.45)' : 'rgba(148,163,184,0.25)');
 
-    accPill.title = `اکانت فعال: ${accName} (${accTier})\nبرای سوئیچ اکانت یا جابجایی پروژه‌ها کلیک کنید`;
+    const initialChar = accName ? accName.charAt(0).toUpperCase() : (isInst2 ? 'B' : 'M');
+    const initialAvatarHtml = `<span style="width:17px;height:17px;border-radius:50%;background:${isInst2 ? 'linear-gradient(135deg, #0ea5e9, #38bdf8)' : 'linear-gradient(135deg, #4285f4, #9b72cb)'};display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:800;pointer-events:none;">${initialChar}</span>`;
 
-    // User initial for fallback instead of lightning bolt
-    const initialChar = accName ? accName.charAt(0).toUpperCase() : 'M';
-    const fallbackAvatar = `<span style="width:17px;height:17px;border-radius:50%;background:linear-gradient(135deg, #4285f4, #9b72cb);display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:800;pointer-events:none;">${initialChar}</span>`;
-
-    accPill.innerHTML = `
-      <span style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;animation:aqm-pulse-dot 2s infinite ease-in-out;pointer-events:none;"></span>
-      ${accAvatar ? `<img src="${accAvatar}" style="width:17px;height:17px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,0.3);pointer-events:none;" onerror="this.style.display='none'" />` : fallbackAvatar}
-      <span style="letter-spacing:-0.01em;font-weight:700;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;" dir="ltr">${accName}</span>
-      <span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:9999px;background:${tierBadgeBg};color:${tierBadgeColor};border:1px solid ${tierBadgeBorder};text-transform:uppercase;letter-spacing:0.02em;pointer-events:none;">${accTierCode.toUpperCase()}</span>
-      <span style="font-size:8px;opacity:0.6;margin-left:1px;pointer-events:none;">▼</span>
-    `;
+    const accPillSig = `${accEmail}|${accName}|${accAvatar}|${accTierCode}|${theme.pillBg}`;
+    if (accPill.dataset.aqmSig !== accPillSig) {
+      accPill.dataset.aqmSig = accPillSig;
+      accPill.title = `اکانت فعال: ${accName} (${accTier})\nبرای سوئیچ اکانت یا جابجایی پروژه‌ها کلیک کنید`;
+      accPill.innerHTML = `
+        <span style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;animation:aqm-pulse-dot 2s infinite ease-in-out;pointer-events:none;"></span>
+        ${accAvatar ? `<img src="${accAvatar}" style="width:17px;height:17px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,0.3);pointer-events:none;" onerror="this.style.display='none'" />` : initialAvatarHtml}
+        <span style="letter-spacing:-0.01em;font-weight:700;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;" dir="ltr">${accName}</span>
+        <span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:9999px;background:${tierBadgeBg};color:${tierBadgeColor};border:1px solid ${tierBadgeBorder};text-transform:uppercase;letter-spacing:0.02em;pointer-events:none;">${accTierCode.toUpperCase()}</span>
+        <span style="font-size:8px;opacity:0.6;margin-left:1px;pointer-events:none;">▼</span>
+      `;
+    }
 
     accPill.onclick = (e) => {
       if (e) {
@@ -4229,6 +4514,7 @@
     if (THEMES[themeId]) {
       currentThemeId = themeId;
       try { localStorage.setItem('antigravity:quota_theme', themeId); } catch (e) {}
+      persistUserSettings({ theme: themeId });
       applyAppWorkspaceTheme(getActiveTheme(), isFullAppThemingEnabled);
       renderBadge();
       renderPopover();
@@ -4237,17 +4523,20 @@
   window.__toggleFullAppTheming = (enabled) => {
     isFullAppThemingEnabled = !!enabled;
     try { localStorage.setItem('antigravity:full_app_theming', String(isFullAppThemingEnabled)); } catch (e) {}
+    persistUserSettings({ fullTheming: isFullAppThemingEnabled });
     applyAppWorkspaceTheme(getActiveTheme(), isFullAppThemingEnabled);
     renderPopover();
   };
   window.__toggleAntigravityPrivacyMode = (enabled) => {
     isPrivacyMode = (typeof enabled === 'boolean') ? enabled : !isPrivacyMode;
     try { localStorage.setItem('antigravity:privacy_mode', String(isPrivacyMode)); } catch (e) {}
+    persistUserSettings({ privacyMode: isPrivacyMode });
     renderPopover();
   };
   window.__setAntigravityFont = (en, fa) => {
     if (en) { customFontEn = en; try { localStorage.setItem('antigravity:custom_font_en', en); } catch(e){} }
     if (fa) { customFontFa = fa; try { localStorage.setItem('antigravity:custom_font_fa', fa); } catch(e){} }
+    persistUserSettings({ fontEn: customFontEn, fontFa: customFontFa });
     applyAppWorkspaceTheme(getActiveTheme(), isFullAppThemingEnabled);
     renderBadge();
     renderPopover();
@@ -4266,6 +4555,7 @@
       customFontEn = name;
       try { localStorage.setItem('antigravity:custom_font_en', name); } catch(e){}
     }
+    persistUserSettings({ customImportedFonts, fontEn: customFontEn, fontFa: customFontFa });
     ensureFontLoaded(name);
     applyAppWorkspaceTheme(getActiveTheme(), isFullAppThemingEnabled);
     renderBadge();

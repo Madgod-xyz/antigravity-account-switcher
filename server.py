@@ -48,6 +48,49 @@ def save_manifest(manifest):
     with open(MANIFEST_PATH, 'w', encoding='utf-8') as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)
 
+USER_SETTINGS_PATH = Path.home() / ".gemini" / "antigravity" / "user_settings.json"
+
+DEFAULT_USER_SETTINGS = {
+    "theme": "cyber",
+    "mode": "remaining",
+    "fullTheming": True,
+    "privacyMode": False,
+    "fontEn": "default",
+    "fontFa": "Vazirmatn",
+    "customImportedFonts": [],
+    "rtl": {
+        "enabled": True,
+        "align": "right",
+        "direction": "rtl",
+        "font": "Vazirmatn"
+    },
+    "lang": "fa"
+}
+
+def load_user_settings():
+    if USER_SETTINGS_PATH.exists():
+        try:
+            with open(USER_SETTINGS_PATH, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+                res = dict(DEFAULT_USER_SETTINGS)
+                res.update(saved)
+                return res
+        except Exception:
+            pass
+    return dict(DEFAULT_USER_SETTINGS)
+
+def save_user_settings(patch):
+    try:
+        cur = load_user_settings()
+        if isinstance(patch, dict):
+            cur.update(patch)
+        USER_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(USER_SETTINGS_PATH, "w", encoding="utf-8") as f:
+            json.dump(cur, f, indent=2, ensure_ascii=False)
+        return True, cur
+    except Exception as e:
+        return False, str(e)
+
 def restart_language_server():
     sys_name = quota_engine.get_current_system()
     if sys_name == 'windows':
@@ -269,10 +312,30 @@ def launch_dual_instance(account_key, project_path=None):
         if token_file:
             token_file = os.path.normpath(token_file)
         if not token_file or not os.path.exists(token_file):
+            if entry.get('needs_reauth') or not token_file:
+                return {'success': False, 'needs_reauth': True, 'account': account_key, 'error': f"حساب '{account_key}' نیاز به ورود مجدد دارد. لطفاً روی دکمه ورود با گوگل کلیک کنید."}
             return {'success': False, 'error': f"فایل توکن حساب '{account_key}' موجود نیست"}
             
         with open(token_file, 'r', encoding='utf-8') as f:
             target_token = f.read().strip()
+        
+        # Verify token actually belongs to account_key!
+        token_email = quota_engine.extract_token_email(target_token)
+        if token_email and token_email.lower().strip() != account_key.lower().strip():
+            print(f"[DUAL REJECTED] Token email '{token_email}' does not match target account '{account_key}'!", flush=True)
+            entry['needs_reauth'] = True
+            entry['token_file'] = ''
+            manifest[account_key] = entry
+            save_manifest(manifest)
+            return {
+                'success': False,
+                'needs_reauth': True,
+                'account': account_key,
+                'error': f"توکن ذخیره شده متعلق به '{token_email}' است و با حساب '{account_key}' تطابق ندارد. لطفاً روی دکمه ورود با گوگل کلیک کنید."
+            }
+
+        # Ensure target token is 100% fresh and has valid access_token
+        target_token = quota_engine.ensure_fresh_token(target_token, account_email=account_key)
             
         sys_name = quota_engine.get_current_system()
         appdata = Path(os.getenv("APPDATA", str(Path.home() / "AppData" / "Roaming")))
@@ -413,27 +476,60 @@ def launch_dual_instance(account_key, project_path=None):
             if project_path and os.path.exists(project_path):
                 cmd.append(project_path)
             flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            existing_ls_pids = set()
+            try:
+                import psutil
+                for p in psutil.process_iter(['pid', 'name']):
+                    if 'language_server' in (p.info.get('name') or '').lower():
+                        existing_ls_pids.add(p.info['pid'])
+            except Exception:
+                pass
+
             try:
                 proc = subprocess.Popen(cmd, creationflags=flags | CREATE_BREAKAWAY_FROM_JOB)
             except Exception:
                 proc = subprocess.Popen(cmd, creationflags=flags)
             
             # Restore primary token and bring window to front
-            def _post_launch_worker():
+            def _post_launch_worker(launch_pid, target_acc, orig_pids):
                 global _dual_launch_in_progress
-                time.sleep(4.5)
+                start_t = time.time()
+                found_ls = False
+                try:
+                    import psutil
+                    # Wait up to 30s for the newly spawned language_server.exe to boot
+                    for _ in range(60):
+                        time.sleep(0.5)
+                        for p in psutil.process_iter(['pid', 'name', 'create_time']):
+                            p_name = (p.info.get('name') or '').lower()
+                            if 'language_server' in p_name:
+                                if (p.info['pid'] not in orig_pids) or (p.info.get('create_time', 0) >= (start_t - 2.0)):
+                                    found_ls = True
+                                    break
+                        if found_ls:
+                            # Language server process is alive! Give it 5.0 seconds to read and cache credentials
+                            time.sleep(5.0)
+                            break
+                except Exception as e:
+                    print(f"[DUAL] Error detecting language_server: {e}", flush=True)
+
+                if not found_ls:
+                    time.sleep(10.0)
+
+                # Now restore primary token back for Instance 1
                 if primary_token:
-                    write_token_to_credential_manager(primary_token)
-                    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [DUAL] Restored primary token for active session.", flush=True)
+                    fresh_primary = quota_engine.ensure_fresh_token(primary_token, account_email=active_email)
+                    write_token_to_credential_manager(fresh_primary)
+                    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [DUAL] Restored primary token for active session (Instance 2 target {target_acc} safely initialized).", flush=True)
                 _dual_launch_in_progress = False
 
                 # Bring window to front once rendered
-                for _ in range(12):
+                for _ in range(15):
                     time.sleep(0.5)
                     if focus_instance2():
                         break
 
-            threading.Thread(target=_post_launch_worker, daemon=True).start()
+            threading.Thread(target=_post_launch_worker, args=(proc.pid, account_key, existing_ls_pids), daemon=True).start()
             
             return {
                 'success': True,
@@ -469,11 +565,27 @@ def switch_account(account_key, no_restart=False):
     
     token_file = entry.get('token_file')
     if not token_file or not os.path.exists(token_file):
+        if entry.get('needs_reauth') or not token_file:
+            return {'success': False, 'needs_reauth': True, 'account': account_key, 'error': f"حساب '{account_key}' نیاز به ورود مجدد دارد. لطفاً روی دکمه ورود با گوگل کلیک کنید."}
         return {'success': False, 'error': "Token file missing"}
 
     with open(token_file, 'r', encoding='utf-8') as f:
         token = f.read().strip()
 
+    token_email = quota_engine.extract_token_email(token)
+    if token_email and token_email.lower().strip() != account_key.lower().strip():
+        entry['needs_reauth'] = True
+        entry['token_file'] = ''
+        manifest[account_key] = entry
+        save_manifest(manifest)
+        return {
+            'success': False,
+            'needs_reauth': True,
+            'account': account_key,
+            'error': f"توکن ذخیره شده متعلق به '{token_email}' است و با حساب '{account_key}' تطابق ندارد. لطفاً روی دکمه ورود با گوگل کلیک کنید."
+        }
+
+    token = quota_engine.ensure_fresh_token(token, account_email=account_key)
     write_token_to_credential_manager(token)
 
     email = entry.get('email', account_key)
@@ -519,6 +631,13 @@ def switch_account(account_key, no_restart=False):
     threading.Thread(target=_bg_fetch, daemon=True).start()
 
     try:
+        active_inst1_file = Path.home() / ".gemini" / "accounts" / "active_instance_1.txt"
+        active_inst1_file.parent.mkdir(parents=True, exist_ok=True)
+        active_inst1_file.write_text(email, encoding="utf-8")
+    except Exception:
+        pass
+
+    try:
         if sys_name == 'windows':
             appdata = Path(os.getenv("APPDATA", str(Path.home() / "AppData" / "Roaming")))
             storage_path = appdata / "Antigravity" / "app_storage.json"
@@ -530,6 +649,7 @@ def switch_account(account_key, no_restart=False):
         if storage_path.exists():
             with open(storage_path, 'r', encoding='utf-8') as f:
                 storage_data = json.load(f)
+        storage_data["antigravity:account_email"] = email
         storage_data["antigravity:active_quota"] = json.dumps(quota_data)
         storage_path.parent.mkdir(parents=True, exist_ok=True)
         with open(storage_path, 'w', encoding='utf-8') as f:
@@ -557,9 +677,13 @@ def save_current_account():
     with open(token_file, 'w', encoding='utf-8') as f:
         f.write(token)
 
+    clean_name = (quota_data.get('name') if quota_data else '') or (email.split('@')[0].split('.')[0].capitalize() if '@' in email else email)
+    avatar = (quota_data.get('avatar') if quota_data else '') or ''
     manifest = load_manifest()
     manifest[email] = {
         'label': email,
+        'name': clean_name,
+        'avatar': avatar,
         'email': email,
         'tier': tier,
         'tier_code': tier_code,
@@ -594,9 +718,13 @@ def import_token(token_str):
     with open(token_file, 'w', encoding='utf-8') as f:
         f.write(token_str)
 
+    clean_name = (quota_data.get('name') if quota_data else '') or (email.split('@')[0].split('.')[0].capitalize() if '@' in email else email)
+    avatar = (quota_data.get('avatar') if quota_data else '') or ''
     manifest = load_manifest()
     manifest[email] = {
         'label': email,
+        'name': clean_name,
+        'avatar': avatar,
         'email': email,
         'tier': tier,
         'tier_code': tier_code,
@@ -699,7 +827,7 @@ def open_browser_url(url):
     except Exception:
         return False
 
-def run_google_oauth_flow(on_url=None, on_complete=None):
+def run_google_oauth_flow(target_account=None, on_url=None, on_complete=None):
     import urllib.parse
     import urllib.request
     import datetime
@@ -718,6 +846,9 @@ def run_google_oauth_flow(on_url=None, on_complete=None):
         "access_type": "offline",
         "prompt": "select_account consent"
     }
+    if target_account:
+        params["login_hint"] = target_account.strip()
+
     auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
     result = {'success': False, 'email': None, 'error': None}
 
@@ -785,7 +916,50 @@ def run_google_oauth_flow(on_url=None, on_complete=None):
                                 pass
                         
                         if not email:
-                            email = f"account_{int(time.time())}@gmail.com"
+                            email = quota_engine.extract_token_email(token_str)
+
+                        if not email:
+                            email = target_account or f"account_{int(time.time())}@gmail.com"
+
+                        # Security check: If target account was specified, prevent mismatched accounts!
+                        if target_account and email and email.lower().strip() != target_account.lower().strip():
+                            err_msg = f"شما با حساب ({email}) وارد شدید، اما حساب مورد نظر ({target_account}) است."
+                            result['error'] = err_msg
+                            result['success'] = False
+                            err_html = f"""<!DOCTYPE html>
+<html dir="rtl" lang="fa">
+<head>
+<meta charset="utf-8">
+<title>خطا در تطابق حساب | Antigravity</title>
+<style>
+  body {{ background: #07090e; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+  .card {{ background: rgba(30, 18, 18, 0.9); backdrop-filter: blur(24px); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 28px; padding: 44px 36px; text-align: center; max-width: 480px; box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6); }}
+  .icon {{ width: 68px; height: 68px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 22px; font-size: 34px; color: #ef4444; }}
+  h2 {{ margin: 0 0 12px; font-size: 21px; font-weight: 700; color: #fca5a5; }}
+  p {{ color: #cbd5e1; font-size: 13.5px; margin: 0 0 16px; line-height: 1.7; }}
+  .badge {{ display: inline-block; background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 9999px; padding: 7px 18px; font-size: 13px; font-weight: 600; direction: ltr; font-family: monospace; margin: 4px; }}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">✕</div>
+  <h2>عدم تطابق حساب کاربری گوگل</h2>
+  <p>شما در مرورگر با حساب زیر وارد شدید:</p>
+  <div class="badge">{email}</div>
+  <p style="margin-top:16px;">اما در آنتی‌گرویتی قصد اتصال به حساب زیر را داشتید:</p>
+  <div class="badge" style="background:rgba(59,130,246,0.2);color:#93c5fd;border-color:rgba(59,130,246,0.4);">{target_account}</div>
+  <div style="margin-top:18px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:14px;padding:14px;font-size:12.5px;color:#93c5fd;line-height:1.7;text-align:right;">
+    💡 <b>راهنمای حل:</b> در صفحه ورود گوگل، مرورگر حساب پیش‌فرض شما ({email}) را انتخاب کرده است. برای اتصال به {target_account}، در صفحه ورود گوگل روی گزینه <b>«استفاده از حساب دیگر» (Use another account)</b> کلیک کرده و ایمیل <b>{target_account}</b> را وارد کنید.
+  </div>
+  <p style="margin-top:16px;font-size:12px;color:#94a3b8;">برای جلوگیری از تداخل سهمیه و نشست‌ها، توکن مغایر ذخیره نشد. می‌توانید این برگه را ببندید.</p>
+</div>
+</body>
+</html>"""
+                            self.send_response(200)
+                            self.send_header('Content-Type', 'text/html; charset=utf-8')
+                            self.end_headers()
+                            self.wfile.write(err_html.encode('utf-8'))
+                            return
                             
                         tier = quota_data.get('tier') if quota_data else 'Google AI'
                         tier_code = quota_data.get('tier_code') if quota_data else 'pro'
@@ -796,14 +970,19 @@ def run_google_oauth_flow(on_url=None, on_complete=None):
                         with open(token_file, 'w', encoding='utf-8') as f:
                             f.write(token_str)
                             
+                        clean_name = (quota_data.get('name') if quota_data else '') or (email.split('@')[0].split('.')[0].capitalize() if '@' in email else email)
+                        avatar = (quota_data.get('avatar') if quota_data else '') or ''
                         manifest = load_manifest()
                         manifest[email] = {
                             'label': email,
+                            'name': clean_name,
+                            'avatar': avatar,
                             'email': email,
                             'tier': tier,
                             'tier_code': tier_code,
                             'remaining_pct': rem,
                             'token_file': token_file,
+                            'needs_reauth': False,
                             'saved_at': time.strftime('%Y-%m-%d %H:%M:%S')
                         }
                         save_manifest(manifest)
@@ -877,12 +1056,44 @@ class SwitcherHTTPHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        if self.path == '/api/state':
+        import urllib.parse
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == '/api/state':
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.end_headers()
-            active = quota_engine.fetch_quota_and_tier()
+            qs = urllib.parse.parse_qs(parsed.query)
+            req_inst = qs.get('instance', [None])[0]
             saved = load_manifest()
+
+            # Dynamic active account resolution per instance
+            if req_inst == 'instance_2':
+                # Try reading assigned email from Antigravity-Instance2/app_storage.json
+                inst2_acc = None
+                appdata = Path(os.getenv("APPDATA", str(Path.home() / "AppData" / "Roaming")))
+                inst2_storage = appdata / "Antigravity-Instance2" / "app_storage.json"
+                if inst2_storage.exists():
+                    try:
+                        with open(inst2_storage, 'r', encoding='utf-8') as f:
+                            s_data = json.load(f)
+                            inst2_acc = s_data.get('antigravity:account_email')
+                    except Exception:
+                        pass
+                if not inst2_acc or inst2_acc not in saved:
+                    # fallback to any non-madgod account
+                    inst2_acc = next((k for k in saved.keys() if k != 'madgod.cum@gmail.com'), 'bombhub.apk@gmail.com')
+                
+                entry = saved.get(inst2_acc, {})
+                tok_file = entry.get('token_file', '')
+                if tok_file and os.path.exists(tok_file):
+                    with open(tok_file, 'r', encoding='utf-8') as tf:
+                        tok_str = tf.read().strip()
+                    active = quota_engine.fetch_quota_and_tier(tok_str) or entry
+                else:
+                    active = entry
+            else:
+                active = quota_engine.fetch_quota_and_tier()
+
             convs = migration_engine.list_conversations()
             projects = migration_engine.list_projects()
             tasks = migration_engine.list_scheduled_tasks()
@@ -916,6 +1127,12 @@ class SwitcherHTTPHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             tasks = migration_engine.list_scheduled_tasks()
             self.wfile.write(json.dumps(tasks, ensure_ascii=False).encode('utf-8'))
+        elif self.path.startswith('/api/settings'):
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(load_user_settings(), ensure_ascii=False).encode('utf-8'))
         elif self.path == '/api/dual_status':
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
@@ -931,13 +1148,22 @@ class SwitcherHTTPHandler(SimpleHTTPRequestHandler):
         data = json.loads(body) if body else {}
         resp = {'success': False}
 
-        if self.path == '/api/switch':
+        if self.path.startswith('/api/settings'):
+            ok, res = save_user_settings(data)
+            resp = {'success': ok, 'settings': res}
+        elif self.path == '/api/switch':
             acc_key = data.get('accountKey')
             resp = switch_account(acc_key, no_restart=data.get('noRestart', False))
         elif self.path == '/api/launch_dual':
             acc_key = data.get('accountKey')
             project_path = data.get('projectPath')
             resp = launch_dual_instance(acc_key, project_path=project_path)
+        elif self.path == '/api/oauth_signin':
+            target_acc = data.get('accountKey') or data.get('email')
+            def _bg_oauth():
+                run_google_oauth_flow(target_account=target_acc)
+            threading.Thread(target=_bg_oauth, daemon=True).start()
+            resp = {'success': True, 'msg': 'در حال باز کردن مرورگر برای ورود...'}
         elif self.path == '/api/save':
             resp = save_current_account()
         elif self.path == '/api/logout':
