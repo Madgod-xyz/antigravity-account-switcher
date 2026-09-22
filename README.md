@@ -95,6 +95,32 @@ Switching between multiple Google accounts on **Google Antigravity** can be tedi
    - 100% local and offline. Never transmits tokens or credentials to external servers.
    - All OAuth tokens remain securely stored inside your operating system's native credential vault.
 
+8. 💳 **Per-Project Quota Payer Allocation**:
+   - Explicitly designate which account pays for prompts in each project.
+   - Live credential switching immediately routes language server requests to the designated account.
+
+---
+
+### 💡 Quota Architecture: Single-Window vs. Concurrent Multi-Window Best Practices
+
+#### 1. Single-Window Mode (100% Granular Freedom)
+- In single-window mode, there are no competing processes for the OS credential store (`gemini:antigravity`).
+- You can freely assign and switch the Quota Payer of any project with a single click in the in-editor switcher modal.
+- The daemon instantly activates that account's token in Windows Credential Manager without restarting the editor, and the very next prompt is guaranteed to deduct from that account.
+
+#### 2. Concurrent Multi-Window Mode (Clean Window-to-Project Binding)
+- **OS Credential Architecture**: Windows maintains a single global credential target (`gemini:antigravity`) per OS user profile.
+- **Cross-Wiring Race Condition Risk**: If Window 1 (Account A) is running a project configured to consume Account B, and Window 2 (Account B) is running a project configured to consume Account A, sending prompts concurrently at the exact same millisecond can trigger a race condition where one window temporarily overwrites the other's token.
+- **Recommended Best Practice (Window Matching Rule)**:
+  - Open projects intended to burn **Account A's quota** inside **Window 1 (Account A)**.
+  - Open projects intended to burn **Account B's quota** inside **Window 2 (Account B)**.
+  - Use the **Selective Project Sync** checklist to ensure projects only appear in their designated window. This enables you to run both windows side-by-side and prompt simultaneously with 0ms latency and zero cross-account conflicts.
+
+#### 3. Scheduled Tasks & Background Scripts (100% Isolated)
+- Background runners, cron jobs, and scheduled tasks are executed using `run_guarded_task`.
+- The account token is injected directly into process environment variables (`process.env.GEMINI_CLI_OAUTH_TOKEN`) rather than modifying the OS credential vault.
+- As a result, arbitrary background tasks across any number of accounts execute completely concurrently with zero risk of conflict.
+
 ---
 
 ## 🇪🇸 Español
@@ -147,12 +173,35 @@ La **Suite de Cambio de Cuenta y Migración para Antigravity** desarrollada por 
 این سوئیت جامع توسعه داده شده توسط سازمان **[mad-helpers](https://github.com/mad-helpers)** (مالکیت مشترک **[Madgod-xyz](https://github.com/Madgod-xyz)** و **[Bombhub-apk](https://github.com/Bombhub-apk)**)، راه‌حلی فوق‌العاده سریع و نیتیو برای سوئیچ هویت‌ها، اجرای همزمان دو پنجره مجزا و انتقال هوشمند پروژه‌ها و مکالمات ایجنت در **Google Antigravity** است.
 
 ### 🌟 قابلیت‌های کلیدی:
-* ⚡️ **اجرای همزمان دو پنجره مجزا (Dual-Instance Concurrent Runner)** با دو جیمیل کاملاً تفکیک‌شده و پوشه‌های مستقل داده (`Antigravity-Instance2`).
+* ⚡️ **اجرای همزمان دو یا چند پنجره مجزا (Concurrent Multi-Window)** با جیمیل‌های کاملاً تفکیک‌شده و پوشه‌های مستقل داده (`Antigravity-Instance2`، `Antigravity-Instance3` و...).
 * 🔄 **سوئیچ تک‌پنجره‌ای زیر ۳ ثانیه** بدون بستن یا از دست رفتن فایل‌های در حال ویرایش.
-* ⏱ **ایزوله‌سازی وظایف زمان‌بندی شده (Scheduled Tasks Isolation)**: جلوگیری قطعی از اجرای تسک‌های اکانت ۱ در اکانت ۲ همراه با قفل امنیتی دسترسی.
+* 💳 **تعیین حساب کسر سهمیه به تفکیک پروژه (Per-Project Quota Payer)**: قابلیت انتخاب این که پرامپت‌های هر پروژه دقیقاً از سهمیه کدام اکانت کسر شوند.
+* ⏱ **ایزوله‌سازی وظایف زمان‌بندی شده (Scheduled Tasks Isolation)**: اجرای مستقل تسک‌ها و کران‌جاب‌ها با متغیرهای محیطی ایزوله بدون کوچک‌ترین تداخل در مخزن کلید سیستم‌عامل.
 * 📁 **مرکز گزینش و همگام‌سازی پروژه‌ها (Granular Project Sync Hub)**: انتخاب چک‌باکسی پروژه‌های مجاز برای اکانت دوم بدون قاطی شدن فایل‌های ناخواسته.
-* 📊 **نشانگر شناور درون‌برنامه‌ای (In-Editor HUD Pill)** در نوار انتخاب مدل با نمایش رتبه (`PRO` / `ULTRA`) و مصرف لحظه‌ای سهمیه‌ها.
+* 📊 **نشانگر شناور درون‌برنامه‌ای (In-Editor HUD Pill)** در نوار انتخاب مدل با نمایش رتبه (`PRO` / `ULTRA`) و مصرف لحظه‌ای سهمیه‌ها (تفکیک دقیق سهمیه ۵ ساعته و هفتگی).
 * 🍏 **طراحی فوق‌العاده زیبای شیشه‌ای اپل (iOS Liquid Glass)** با انیمیشن‌های نرم ۶۰ فریم و پشتیبانی کامل راست‌چین (RTL).
+
+---
+
+### 💡 راهنمای معماری سهمیه‌ها: حالت تک‌پنجره در برابر چندپنجره‌ی همزمان
+
+#### ۱. حالت تک‌پنجره (Single-Window - آزادی عمل ۱۰۰٪)
+* در حالت تک‌پنجره، هیچ پروسه‌ی موازی دیگری برای مخزن توکن ویندوز (`gemini:antigravity`) رقابت نمی‌کند.
+* **تغییر آنی کسر سهمیه**: در هر پروژه‌ای که باشید، کافی است در تب پروژه‌ها روی حساب مد نظرتان در بخش **«💳 کسر سهمیه از (Quota Payer)»** کلیک کنید. سیستم بلافاصله توکن همان حساب را در مخزن فعال می‌کند و از همان ثانیه، پرامپت بعدی ایجنت دقیقاً از سهمیه همان حساب کسر می‌شود.
+* نشانگر وضعیت در پایین صفحه در لحظه نام اکانت و درصد باقیمانده سهمیه را بروزرسانی می‌کند.
+
+#### ۲. حالت چندپنجره‌ی همزمان (Multi-Window Concurrency & Best Practice)
+* **زیر کاپوت سیستم‌عامل**: ویندوز برای هر کاربر سیستم‌عامل یک مخزن واحد کلید دارد. هر پنجره ادیتور دارای پروسه مستقل زبانی است، اما مخزن کلید ویندوز بین پروسه‌ها مشترک است.
+* **خطر تداخل ضربدری (Cross-Wiring Race Condition)**: اگر در پنجره ۱ (اکانت بمب‌هاب) پروژه‌ای باز کنید که روی سهمیه مدگاد تنظیم شده باشد، و همزمان در پنجره ۲ (اکانت مدگاد) پروژه‌ای باز کنید که روی سهمیه بمب‌هاب تنظیم شده باشد، در صورت **ارسال همزمان پرامپت در یک صدم ثانیه مشترک**، این دو پنجره برای تغییر توکن مخزن ویندوز با هم رقابت می‌کنند و ممکن است پرامپت از اکانت اشتباه کسر شود.
+* **راهکار اصولی و پیشنهادی (قانون تطابق پروژه با پنجره)**:
+  * پروژه‌های مربوط به سهمیه **اکانت ۱** را در **پنجره ۱** باز کنید.
+  * پروژه‌های مربوط به سهمیه **اکانت ۲** را در **پنجره ۲** باز کنید.
+  * با استفاده از قابلیت **«سینک انتخابی»** می‌توانید تعیین کنید هر پروژه فقط در پنجره اکانت خودش در دسترس باشد. در این حالت می‌توانید **هر دو پنجره را کنار هم بگذارید و به صورت کاملاً همزمان پرامپت بفرستید** بدون اینکه ۱ میلی‌ثانیه تداخل یا خطایی رخ دهد.
+
+#### ۳. تسک‌های زمان‌بندی‌شده و اسکریپت‌های پس‌زمینه (۱۰۰٪ ایزوله)
+* تسک‌های خودکار روزانه و اسکریپت‌های ایجنت با متد `run_guarded_task` اجرا می‌شوند.
+* این متد توکن مخصوص اکانتِ تعیین‌شده برای آن تسک را مستقیماً داخل متغیرهای محیطی خود پروسه (`process.env.GEMINI_CLI_OAUTH_TOKEN`) تزریق می‌کند و کاری به مخزن ویندوز ندارد.
+* بنابراین حتی اگر چندین تسک متعلق به چندین اکانت مختلف به طور همزمان اجرا شوند، کوچک‌ترین تداخلی ایجاد نخواهد شد.
 
 ---
 
